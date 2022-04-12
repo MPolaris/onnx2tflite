@@ -36,3 +36,5 @@ class Registry(object):
             return cls
 
         return _register
+
+OPERATOR = Registry("TensorflowOP")
