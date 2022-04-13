@@ -171,13 +171,13 @@ class TFSlice(keras.layers.Layer):
         return tf.gather(inputs, indices, axis=self.axis)
 
 @OPERATOR.register_operator("Concat")
-class TFConcat(keras.layers.Layer):
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
-        super().__init__()
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axis'])
-
-    def call(self, inputs, *args, **kwargs):
-        return tf.concat(inputs, axis=self.axis)
+def TFConcat(tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    _axis = shape_axis_utils.Torch2TFAxis(node_attribute['axis'])
+    _gather = [tensor_grap[x] for x in node_inputs]
+    out = tf.concat(_gather, axis=_axis)
+    def lambda_func(*args, **kwargs):
+        return out
+    return lambda_func
 
 @OPERATOR.register_operator("Upsample")
 class TFUpsample(keras.layers.Layer):

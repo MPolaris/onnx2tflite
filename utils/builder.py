@@ -50,15 +50,8 @@ def keras_builder(onnx_model):
         tf_operator = OPERATOR.get(op_name)
         if tf_operator is None:
             raise KeyError(f"算子 {op_name} 还未实现")
-        if op_name == "Concat":
-            gather = [tf_tensor[x] for x in node_inputs]
-            tf_tensor[node_outputs[0]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr)(gather)
-        else:
-            tf_tensor[node_outputs[0]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr)(tf_tensor[node_inputs[0]])
-        # if node_outputs[0] == '686':
-            # break
-    
-    # keras_model = keras.Model(inputs=[tf_tensor[x.name] for x in model_graph.input], outputs=tf_tensor['686'])
+        tf_tensor[node_outputs[0]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr)(tf_tensor[node_inputs[0]])
+
     keras_model = keras.Model(inputs=[tf_tensor[x.name] for x in model_graph.input], outputs=[tf_tensor[x.name] for x in model_graph.output])
     keras_model.trainable = False
     keras_model.summary()
