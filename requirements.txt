@@ -1,0 +1,6 @@
+onnx
+onnxruntime
+onnx-simplifier
+numpy
+tensorflow
+opencv-python
