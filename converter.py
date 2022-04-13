@@ -22,7 +22,7 @@ def onnx_converter(onnx_model_path:str, need_simplify:bool=True, tflite_out_path
 
 if __name__ == "__main__":
     onnx_converter(
-        onnx_model_path = "./mobilenetv3.onnx",
+        onnx_model_path = "./models/yolox_nano.onnx",
         need_simplify = True,
-        tflite_out_path = "./mobilenetv3.tflite"
+        tflite_out_path = "./models/yolox_nano.tflite"
     )

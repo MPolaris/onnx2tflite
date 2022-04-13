@@ -50,16 +50,22 @@ def keras_builder(onnx_model):
         tf_operator = OPERATOR.get(op_name)
         if tf_operator is None:
             raise KeyError(f"算子 {op_name} 还未实现")
-        tf_tensor[node_outputs[0]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr)(tf_tensor[node_inputs[0]])
-        
+        if op_name == "Concat":
+            gather = [tf_tensor[x] for x in node_inputs]
+            tf_tensor[node_outputs[0]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr)(gather)
+        else:
+            tf_tensor[node_outputs[0]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr)(tf_tensor[node_inputs[0]])
+        # if node_outputs[0] == '686':
+            # break
+    
+    # keras_model = keras.Model(inputs=[tf_tensor[x.name] for x in model_graph.input], outputs=tf_tensor['686'])
     keras_model = keras.Model(inputs=[tf_tensor[x.name] for x in model_graph.input], outputs=[tf_tensor[x.name] for x in model_graph.output])
     keras_model.trainable = False
     keras_model.summary()
 
     return keras_model
 
-def tflite_builder(keras_model, input_shape:tuple=(224, 224),
-                    weight_quant:bool=False, int8_model:bool=False, image_root:str=None):
+def tflite_builder(keras_model, weight_quant:bool=False, int8_model:bool=False, image_root:str=None):
     converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
     if weight_quant or int8_model:
@@ -67,6 +73,7 @@ def tflite_builder(keras_model, input_shape:tuple=(224, 224),
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
 
     if int8_model:
+        input_shape = (keras_model.inputs[0].shape[1], keras_model.inputs[0].shape[2])
         converter.representative_dataset = lambda: representative_dataset_gen(image_root, input_shape)
         converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
         converter.target_spec.supported_types = []

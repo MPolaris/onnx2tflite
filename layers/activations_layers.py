@@ -19,7 +19,7 @@ class TFSigmoid(keras.layers.Layer):
         super().__init__()
 
     def call(self, inputs):
-        return keras.activations.relu(inputs)
+        return keras.activations.sigmoid(inputs)
 
 @OPERATOR.register_operator("LeakyRelu")
 class TFLeakyRelu(keras.layers.Layer):

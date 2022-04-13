@@ -38,7 +38,7 @@ def main(onnx_model_path, tflite_model_path, interest_layers = []):
     return [mean, max]
 
 if __name__ == "__main__":
-    main(onnx_model_path = "./models/mobilenetv3.onnx",
-            tflite_model_path = "./models/mobilenetv3.tflite",
+    main(onnx_model_path = "./models/yolox_nano.onnx",
+            tflite_model_path = "./models/yolox_nano.tflite",
             interest_layers = []
             )
