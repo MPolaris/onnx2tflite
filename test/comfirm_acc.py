@@ -1,20 +1,18 @@
 import os
 import numpy as np
 import tensorflow as tf
-from utils.onnx_runner import ONNXModel
+from onnx_runner import ONNXModel
 
 def main(onnx_model_path, tflite_model_path, interest_layers = []):
     model_onnx = ONNXModel(onnx_model_path, interest_layers)
 
     X = np.random.randn(*model_onnx.input_shape).astype(np.float32)*10
     if len(interest_layers) == 0:
-        onnx_out = model_onnx.forward(X)[0]
+        onnx_out = model_onnx.forward(X)[-1]
         print("onnx_out.shape = ", onnx_out.shape)
     else:
-        onnx_out, inner_layer = model_onnx.forward(X)
-        print("onnx_out.shape = ", onnx_out.shape)
-        print("inner_layer.shape = ", inner_layer.shape)
-        onnx_out = inner_layer
+        onnx_out = model_onnx.forward(X)[-1]
+        print("inner_layer.shape = ", onnx_out.shape)
 
     X = X.transpose(0, 2, 3, 1)
     model_tflite = tf.lite.Interpreter(model_path=tflite_model_path)
@@ -38,7 +36,7 @@ def main(onnx_model_path, tflite_model_path, interest_layers = []):
     return [mean, max]
 
 if __name__ == "__main__":
-    main(onnx_model_path = "./models/yolox_nano.onnx",
-            tflite_model_path = "./models/yolox_nano.tflite",
+    main(onnx_model_path = "./models/yolov5n.onnx",
+            tflite_model_path = "./models/yolov5n.tflite",
             interest_layers = []
             )

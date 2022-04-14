@@ -1,6 +1,5 @@
 import os
 import cv2
-import onnx
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras

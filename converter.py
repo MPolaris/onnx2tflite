@@ -1,6 +1,9 @@
 import os
+import logging
 import numpy as np
-from utils import LOG, load_onnx_modelproto, keras_builder, tflite_builder
+from utils import load_onnx_modelproto, keras_builder, tflite_builder
+
+LOG = logging.getLogger("converter running:")
 
 def onnx_converter(onnx_model_path:str, need_simplify:bool=True, tflite_out_path:str=None,
                 weight_quant:bool=False, int8_model:bool=False, image_root:str=None):
@@ -22,7 +25,7 @@ def onnx_converter(onnx_model_path:str, need_simplify:bool=True, tflite_out_path
 
 if __name__ == "__main__":
     onnx_converter(
-        onnx_model_path = "./models/yolox_nano.onnx",
+        onnx_model_path = "./models/yolov5n.onnx",
         need_simplify = True,
-        tflite_out_path = "./models/yolox_nano.tflite"
+        tflite_out_path = "./models/yolov5n.tflite"
     )

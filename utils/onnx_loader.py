@@ -1,8 +1,9 @@
 import os
 import onnx
-from . import LOG
 import numpy as np
+import logging
 
+LOG = logging.getLogger("onnx_loader running:")
 try:
     from onnxsim import simplify
 except:

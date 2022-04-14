@@ -1,9 +1,12 @@
 import numpy as np
 import tensorflow as tf
+import logging
 from tensorflow import keras
 
 from . import OPERATOR
 from . import shape_axis_utils
+
+LOG = logging.getLogger("common_layers :")
 
 @OPERATOR.register_operator("BatchNormalization")
 class TFBatchNormalization(keras.layers.Layer):
@@ -117,11 +120,13 @@ class TFAveragePool(keras.layers.Layer):
 class TFMaxPool(keras.layers.Layer):
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
+        # TODO 这个操作会导致转换误差增大，估计是pad的问题导致的。
         self.max_pool = keras.layers.MaxPool2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
                                                  strides=node_attribute.get("strides", [1])[0], padding='VALID')
         self.pad = node_attribute.get("pads", None)
         if self.pad is not None:
             self.pad = TFPad(None, None, None, {"pads": self.pad[0], "mode": "constant"})
+            # self.pad = keras.layers.ZeroPadding2D(padding=((self.pad[0], self.pad[1]), (self.pad[2], self.pad[3])))
 
     def call(self, inputs):
         if self.pad:
@@ -145,6 +150,13 @@ class TFTranspose(keras.layers.Layer):
         super().__init__()
         if kwargs.get("perm_list"):
             self.perm_list = kwargs.get("perm_list")
+        elif len(node_attribute['perm']) > 4:
+            self.perm_list = []
+            for axis in node_attribute['perm']:
+                new_axis = shape_axis_utils.Torch2TFAxis(axis)
+                if new_axis == -1:
+                    new_axis = max(node_attribute['perm'])
+                self.perm_list.append(new_axis)
         else:
             self.perm_list = shape_axis_utils.TorchShape2TF(node_attribute['perm'])
 
@@ -222,10 +234,22 @@ class TFReshape(keras.layers.Layer):
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self.out_shape = node_weights[node_inputs[1]]
-        self.out_shape = shape_axis_utils.TorchShape2TF(self.out_shape)
+        self.trans_in, self.trans_out = None, None
+        if len(self.out_shape) > 4:
+            LOG.warning("Reshape 操作将会回到NCHW形式进行")
+            shape_len = len(tensor_grap[node_inputs[0]].shape)
+            self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
+            self.trans_out = [0] + [n for n in range(2, len(self.out_shape))] + [1]
+        else:
+            self.out_shape = shape_axis_utils.TorchShape2TF(self.out_shape)
 
     def call(self, inputs):
-        return tf.reshape(inputs, shape=self.out_shape)
+        if self.trans_in:
+            inputs = tf.transpose(inputs, perm=self.trans_in)
+            inputs = tf.reshape(inputs, shape=self.out_shape)
+            return tf.transpose(inputs, perm=self.trans_out)
+        else:
+            return tf.reshape(inputs, shape=self.out_shape)
 
 @OPERATOR.register_operator("Flatten")
 class TFFlatten(keras.layers.Layer):
