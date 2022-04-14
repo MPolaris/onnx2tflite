@@ -52,46 +52,6 @@ class TFClip(keras.layers.Layer):
     def __call__(self, inputs):
         return tf.clip_by_value(inputs, self.min, self.max)
 
-@OPERATOR.register_operator("Add")
-class TFAdd(keras.layers.Layer):
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
-        super().__init__()
-        self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
-        self.t2 = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[1]])
-
-    def __call__(self, *args, **kwargs):
-        return self.t1 + self.t2
-
-@OPERATOR.register_operator("Sub")
-class TFSub(keras.layers.Layer):
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
-        super().__init__()
-        self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
-        self.t2 = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[1]])
-
-    def __call__(self, *args, **kwargs):
-        return self.t1 - self.t2
-
-@OPERATOR.register_operator("Mul")
-class TFMul(keras.layers.Layer):
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
-        super().__init__()
-        self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
-        self.t2 = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[1]])
-
-    def __call__(self, *args, **kwargs):
-        return self.t1 * self.t2
-
-@OPERATOR.register_operator("Div")
-class TFDiv(keras.layers.Layer):
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
-        super().__init__()
-        self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
-        self.t2 = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[1]])
-
-    def __call__(self, *args, **kwargs):
-        return self.t1 / self.t2
-
 @OPERATOR.register_operator("GlobalAveragePool")
 class TFGlobalAveragePool(keras.layers.Layer):
     def __init__(self, *args, **kwargs) -> None:
@@ -157,6 +117,7 @@ class TFTranspose(keras.layers.Layer):
                 if new_axis == -1:
                     new_axis = max(node_attribute['perm'])
                 self.perm_list.append(new_axis)
+            self.perm_list = shape_axis_utils.TorchShape2TF(self.perm_list)
         else:
             self.perm_list = shape_axis_utils.TorchShape2TF(node_attribute['perm'])
 
@@ -235,22 +196,16 @@ class TFReshape(keras.layers.Layer):
         super().__init__()
         self.out_shape = node_weights[node_inputs[1]]
         self.trans_in, self.trans_out = None, None
-        if len(self.out_shape) > 4:
-            LOG.warning("Reshape 操作将会回到NCHW形式进行")
-            shape_len = len(tensor_grap[node_inputs[0]].shape)
-            self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
-            self.trans_out = [0] + [n for n in range(2, len(self.out_shape))] + [1]
-        else:
-            self.out_shape = shape_axis_utils.TorchShape2TF(self.out_shape)
+        LOG.warning("Reshape 操作将会回到NCHW形式进行")
+        shape_len = len(tensor_grap[node_inputs[0]].shape)
+        self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
+        self.trans_out = [0] + [n for n in range(2, len(self.out_shape))] + [1]
 
     def call(self, inputs):
-        if self.trans_in:
-            inputs = tf.transpose(inputs, perm=self.trans_in)
-            inputs = tf.reshape(inputs, shape=self.out_shape)
-            return tf.transpose(inputs, perm=self.trans_out)
-        else:
-            return tf.reshape(inputs, shape=self.out_shape)
-
+        inputs = tf.transpose(inputs, perm=self.trans_in)
+        inputs = tf.reshape(inputs, shape=self.out_shape)
+        return tf.transpose(inputs, perm=self.trans_out)
+        
 @OPERATOR.register_operator("Flatten")
 class TFFlatten(keras.layers.Layer):
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
