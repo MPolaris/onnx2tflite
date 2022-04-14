@@ -3,22 +3,31 @@
 ## How to use
 ```python
 # base
-python converter --weights "./your_model.onnx"
+python converter.py --weights "./your_model.onnx"
 
 # give save path
-python converter --weights "./your_model.onnx" --outpath "./save_path"
-python converter --weights "./your_model.onnx" --outpath "./tflitemodel.tflite"
+python converter.py --weights "./your_model.onnx" --outpath "./save_path"
+
+# save keras model
+python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "keras"
+
+# save tflite model
+python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite"
+
+# save keras and tflite model
+python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" "keras"
 
 # quantitative model weight, only weight
-python converter --weights "./your_model.onnx" --weigthquant
+python converter.py --weights "./your_model.onnx" --formats "tflite" --weigthquant
 
 # quantitative model weight, include input and output
-python converter --weights "./your_model.onnx" --int8 --imgroot "./dataset_path" # recommend
-python converter --weights "./your_model.onnx" --int8 # generate random data, instead of read from image file
+python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 --imgroot "./dataset_path" # recommend
+python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 # generate random data, instead of read from image file
 ```
 
 ## 注意(Caution)
 - please use [comfirm_acc.py](./test/comfirm_acc.py) comfirm output is correct after convertion, because some of methods rely on practice.
+- comfirm_acc.py only support tflite, and tflite should not be any quantification.
 - tools is going on update.
 - only support 2D CNN, may be support more types of CNN or transformer in the future.
 - 因为大部分是靠实践经验的，所以转换完成最好使用[comfirm_acc.py](./test/comfirm_acc.py)确认转换精度。

@@ -5,7 +5,7 @@ from . import OPERATOR
 from .common_layers import TFPad
 
 @OPERATOR.register_operator("Conv")
-class Convlution(keras.layers.Layer):
+class Convlution():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
         out_channel, in_channel = node_weights[node_inputs[1]].shape[:2]
@@ -24,7 +24,7 @@ class Convlution(keras.layers.Layer):
         else:
             self.conv = TFGroupConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, group, weights, bias)
     
-    def call(self, inputs):
+    def __call__(self, inputs):
         return self.conv(inputs)
 
 
@@ -33,7 +33,7 @@ def autopad(k, p=None):
         p = k // 2 if isinstance(k, int) else [x // 2 for x in k]
     return p
 
-class TFConv(keras.layers.Layer):
+class TFConv():
     # 常规卷积Standard convolution
     def __init__(self, in_channel_num, out_channel_num, kernel_size=1, 
                         strides=1, dilations=1, pads=None, weights=None, bias=None):
@@ -45,21 +45,23 @@ class TFConv(keras.layers.Layer):
             strides = (strides, strides)
         if dilations[0] != 1 and strides[0] != 1:
             raise Exception("Currently, specifying any dilation_rate value != 1 is incompatible with specifying any stride value != 1.")
-        conv = keras.layers.Conv2D(
+        self.conv = keras.layers.Conv2D(
             out_channel_num, kernel_size, strides, "VALID", use_bias=False if bias is None else True,
             kernel_initializer=keras.initializers.Constant(weights),
             bias_initializer='zeros' if bias is None else keras.initializers.Constant(bias),
             dilation_rate=dilations)
-        if pads is None:
-            self.conv = conv
-        else:
+        self.pad =None
+        if pads is not None:
             pad_attr = {"pads": autopad(kernel_size, pads), "mode": "constant"}
-            self.conv = keras.Sequential([TFPad(None, None, None, node_attribute=pad_attr), conv])
+            self.pad = TFPad(None, None, None, node_attribute=pad_attr)
 
-    def call(self, inputs):
-        return self.conv(inputs)
+    def __call__(self, inputs):
+        if self.pad:
+            return self.conv(self.pad(inputs))
+        else:
+            return self.conv(inputs)
 
-class TFGroupConv(keras.layers.Layer):
+class TFGroupConv():
     # 分组卷积Group Convolution
     def __init__(self, in_channel_num, out_channel_num, kernel_size=1, 
                         strides=1, dilations=1, pads=None, groups=1, weights=None, bias=None):
@@ -89,7 +91,7 @@ class TFGroupConv(keras.layers.Layer):
                                 kernel_initializer=keras.initializers.Constant(weights[:, :, :, i*out_channel_num:(i+1)*out_channel_num]),
                                 bias_initializer='zeros' if bias is None else keras.initializers.Constant(bias[i*out_channel_num:(i+1)*out_channel_num])))
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         if self.pad is not None:
             inputs = self.pad(inputs)
         outs = []
@@ -99,7 +101,7 @@ class TFGroupConv(keras.layers.Layer):
         outs = tf.concat(outs, axis=-1)
         return outs
 
-class TFDepthwiseConv2D(keras.layers.Layer):
+class TFDepthwiseConv2D():
     # 深度可分离卷积Depthwise Convolution
     def __init__(self, kernel_size=1, strides=1, dilations=1, pads=None, weights=None, bias=None) -> None:
         super().__init__()
@@ -107,7 +109,7 @@ class TFDepthwiseConv2D(keras.layers.Layer):
             dilations = (dilations, dilations)
         if isinstance(strides, int):
             strides = (strides, strides)
-        conv = keras.layers.DepthwiseConv2D(
+        self.conv = keras.layers.DepthwiseConv2D(
             kernel_size, strides, "VALID", use_bias=False if bias is None else True,
             weights=[weights] if bias is None else [weights, bias],
             dilation_rate=dilations,
@@ -115,12 +117,13 @@ class TFDepthwiseConv2D(keras.layers.Layer):
             kernel_initializer='zeros',
             bias_initializer='zeros'
         )
-        
-        if pads is None:
-            self.conv = conv
-        else:
+        self.pad = None
+        if pads is not None:
             pad_attr = {"pads": autopad(kernel_size, pads), "mode": "constant"}
-            self.conv = keras.Sequential([TFPad(None, None, None, node_attribute=pad_attr), conv])
+            self.pad = TFPad(None, None, None, node_attribute=pad_attr)
             
-    def call(self, inputs):
-        return self.conv(inputs)
+    def __call__(self, inputs):
+        if self.pad:
+            return self.conv(self.pad(inputs))
+        else:
+            return self.conv(inputs)

@@ -9,7 +9,7 @@ from . import shape_axis_utils
 LOG = logging.getLogger("calculations_layers :")
 
 @OPERATOR.register_operator("Add")
-class TFAdd(keras.layers.Layer):
+class TFAdd():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
@@ -20,7 +20,7 @@ class TFAdd(keras.layers.Layer):
         return self.t1 + self.t2
 
 @OPERATOR.register_operator("Sub")
-class TFSub(keras.layers.Layer):
+class TFSub():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
@@ -30,7 +30,7 @@ class TFSub(keras.layers.Layer):
         return self.t1 - self.t2
 
 @OPERATOR.register_operator("Mul")
-class TFMul(keras.layers.Layer):
+class TFMul():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
@@ -40,7 +40,7 @@ class TFMul(keras.layers.Layer):
         return self.t1 * self.t2
 
 @OPERATOR.register_operator("Div")
-class TFDiv(keras.layers.Layer):
+class TFDiv():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
@@ -50,7 +50,7 @@ class TFDiv(keras.layers.Layer):
         return self.t1 / self.t2
 
 @OPERATOR.register_operator("Pow")
-class TFPow(keras.layers.Layer):
+class TFPow():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self.power_index = node_weights[node_inputs[1]]
@@ -59,7 +59,7 @@ class TFPow(keras.layers.Layer):
         return tf.pow(inputs, self.power_index)
 
 @OPERATOR.register_operator("Reciprocal")
-class TFReciprocal(keras.layers.Layer):
+class TFReciprocal():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
 
@@ -67,7 +67,7 @@ class TFReciprocal(keras.layers.Layer):
         return 1/inputs
 
 @OPERATOR.register_operator("Sqrt")
-class TFSqrt(keras.layers.Layer):
+class TFSqrt():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
 

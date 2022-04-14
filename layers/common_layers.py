@@ -9,7 +9,7 @@ from . import shape_axis_utils
 LOG = logging.getLogger("common_layers :")
 
 @OPERATOR.register_operator("BatchNormalization")
-class TFBatchNormalization(keras.layers.Layer):
+class TFBatchNormalization():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         epsilon = node_attribute.get("epsilon", 1e-5)
@@ -23,11 +23,11 @@ class TFBatchNormalization(keras.layers.Layer):
             epsilon=epsilon,
             momentum=momentum)
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         return self.bn(inputs)
 
 @OPERATOR.register_operator("Pad")
-class TFPad(keras.layers.Layer):
+class TFPad():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         if node_attribute.get("pads") is not None:
@@ -39,11 +39,11 @@ class TFPad(keras.layers.Layer):
         self.pad = tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]])
         self.model = node_attribute['mode'].upper()
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         return tf.pad(inputs, self.pad, mode=self.model)
 
 @OPERATOR.register_operator("Clip")
-class TFClip(keras.layers.Layer):
+class TFClip():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self.min = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else node_weights[node_inputs[1]]
@@ -53,15 +53,15 @@ class TFClip(keras.layers.Layer):
         return tf.clip_by_value(inputs, self.min, self.max)
 
 @OPERATOR.register_operator("GlobalAveragePool")
-class TFGlobalAveragePool(keras.layers.Layer):
+class TFGlobalAveragePool():
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         return tf.reduce_mean(inputs, axis=[1, 2], keepdims=True)
 
 @OPERATOR.register_operator("AveragePool")
-class TFAveragePool(keras.layers.Layer):
+class TFAveragePool():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
         self.avg_pool = keras.layers.AveragePooling2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
@@ -70,14 +70,14 @@ class TFAveragePool(keras.layers.Layer):
         if self.pad is not None:
             self.pad = TFPad(None, None, None, {"pads": self.pad[0], "mode": "constant"})
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         if self.pad:
             return self.avg_pool(self.pad(inputs))
         else:
             return self.avg_pool(inputs)
 
 @OPERATOR.register_operator("MaxPool")
-class TFMaxPool(keras.layers.Layer):
+class TFMaxPool():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
         # TODO 这个操作会导致转换误差增大，估计是pad的问题导致的。
@@ -88,24 +88,24 @@ class TFMaxPool(keras.layers.Layer):
             self.pad = TFPad(None, None, None, {"pads": self.pad[0], "mode": "constant"})
             # self.pad = keras.layers.ZeroPadding2D(padding=((self.pad[0], self.pad[1]), (self.pad[2], self.pad[3])))
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         if self.pad:
             return self.max_pool(self.pad(inputs))
         else:
             return self.max_pool(inputs)
 
 @OPERATOR.register_operator("Gather")
-class TFGather(keras.layers.Layer):
+class TFGather():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
         self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axis'])
         self.indices = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else node_weights[node_inputs[1]]
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         return tf.gather(inputs, self.indices, axis=self.axis)
 
 @OPERATOR.register_operator("Transpose")
-class TFTranspose(keras.layers.Layer):
+class TFTranspose():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
         if kwargs.get("perm_list"):
@@ -125,7 +125,7 @@ class TFTranspose(keras.layers.Layer):
         return tf.transpose(inputs, perm=self.perm_list)
 
 @OPERATOR.register_operator("Slice")
-class TFSlice(keras.layers.Layer):
+class TFSlice():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
         if len(node_inputs) == 1:
@@ -139,7 +139,7 @@ class TFSlice(keras.layers.Layer):
             self.ends = min(node_weights[node_inputs[2]][0], tensor_grap[node_inputs[0]].shape[self.axis])
             self.steps = 1 if len(node_inputs) < 5 else node_weights[node_inputs[4]][0]
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         indices = tf.keras.backend.arange(self.starts, self.ends, step=self.steps)
         return tf.gather(inputs, indices, axis=self.axis)
 
@@ -153,7 +153,7 @@ def TFConcat(tensor_grap, node_weights, node_inputs, node_attribute, *args, **kw
     return lambda_func
 
 @OPERATOR.register_operator("Upsample")
-class TFUpsample(keras.layers.Layer):
+class TFUpsample():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         _, h, w, _ = tensor_grap[node_inputs[0]].shape
@@ -165,11 +165,11 @@ class TFUpsample(keras.layers.Layer):
         else:
             self.method = tf.image.ResizeMethod.BILINEAR
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         return tf.image.resize(inputs,  self.scale, method=self.method)
 
 @OPERATOR.register_operator("Resize")
-class TFResize(keras.layers.Layer):
+class TFResize():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         if len(node_inputs) == 4:
@@ -187,11 +187,11 @@ class TFResize(keras.layers.Layer):
         else:
             self.method = tf.image.ResizeMethod.BILINEAR
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         return tf.image.resize(inputs,  self.scale, method=self.method)
 
 @OPERATOR.register_operator("Reshape")
-class TFReshape(keras.layers.Layer):
+class TFReshape():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self.out_shape = node_weights[node_inputs[1]]
@@ -201,13 +201,13 @@ class TFReshape(keras.layers.Layer):
         self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
         self.trans_out = [0] + [n for n in range(2, len(self.out_shape))] + [1]
 
-    def call(self, inputs):
+    def __call__(self, inputs):
         inputs = tf.transpose(inputs, perm=self.trans_in)
         inputs = tf.reshape(inputs, shape=self.out_shape)
         return tf.transpose(inputs, perm=self.trans_out)
         
 @OPERATOR.register_operator("Flatten")
-class TFFlatten(keras.layers.Layer):
+class TFFlatten():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
         tensor_size, tensor_shape = 1, tensor_grap[node_inputs[0]].get_shape().as_list()
@@ -227,7 +227,7 @@ class TFFlatten(keras.layers.Layer):
         return tf.reshape(inputs, shape=(1, -1))
 
 @OPERATOR.register_operator("Gemm")
-class TFGemm(keras.layers.Layer):
+class TFGemm():
     '''
         全连接函数, torch.linear, tf.layers.dense, keras.layers.Dense
     '''
@@ -250,6 +250,6 @@ class TFGemm(keras.layers.Layer):
                                             use_bias=True,
                                             kernel_initializer=keras.initializers.Constant(weights),
                                             bias_initializer=keras.initializers.Constant(bias))
-    def call(self, inputs):
+    def __call__(self, inputs):
         return self.dense(inputs)
 
