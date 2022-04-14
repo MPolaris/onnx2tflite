@@ -1,4 +1,4 @@
-# ONNX->TFLite ONNX->Kears tool
+#  ONNX->Keras and ONNX->TFLite tools
 
 ## How to use
 ```python
