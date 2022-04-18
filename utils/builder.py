@@ -6,22 +6,37 @@ from tensorflow import keras
 from onnx import numpy_helper
 from .op_registry import OPERATOR
 
-def representative_dataset_gen(img_root, img_size):
+def representative_dataset_gen(img_root, img_size, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+    if isinstance(mean, list):
+        mean = np.array(mean, dtype=np.float32)
+    if isinstance(std, list):
+        std = np.array(std, dtype=np.float32)
+
     if img_root is None or (not os.path.exists(img_root)):
         for _ in range(20):
-            input = np.random.rand(1, img_size[0], img_size[1], 3).astype(np.float32)
-            yield [input]
+            _input = np.random.rand(img_size[0], img_size[1], 3).astype(np.float32)
+            if mean is not None:
+                _input = (_input - mean)
+            if std is not None:
+                _input = _input/std
+            _input = np.expand_dims(_input, axis=0).astype(np.float32)
+            yield [_input]
     else:
-        VALID_FORMAT = ['jpg', 'png']
+        VALID_FORMAT = ['jpg', 'png', 'jpeg']
         for i, fn in enumerate(os.listdir(img_root)):
             if fn.split(".")[-1] not in VALID_FORMAT:
                 continue
-            input = cv2.imread(os.path.join(img_root, fn))
-            input = cv2.resize(input, img_size)[:, :, ::-1]
-            input = np.expand_dims(input, axis=0).astype(np.float32)
-            input /= 255
-            yield [input]
-            if i >= 40:
+            _input = cv2.imread(os.path.join(img_root, fn))
+            _input = cv2.resize(_input, img_size)[:, :, ::-1]
+            _input = _input/255
+            if mean is not None:
+                _input = (_input - mean)
+            if std is not None:
+                _input = _input/std
+
+            _input = np.expand_dims(_input, axis=0).astype(np.float32)
+            yield [_input]
+            if i >= 100:
                 break
 
 def keras_builder(onnx_model):
@@ -57,7 +72,8 @@ def keras_builder(onnx_model):
 
     return keras_model
 
-def tflite_builder(keras_model, weight_quant:bool=False, int8_model:bool=False, image_root:str=None):
+def tflite_builder(keras_model, weight_quant:bool=False, int8_model:bool=False, image_root:str=None,
+                    int8_mean:list or float = [0.485, 0.456, 0.406], int8_std:list or float = [0.229, 0.224, 0.225]):
     converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
     if weight_quant or int8_model:
@@ -66,7 +82,7 @@ def tflite_builder(keras_model, weight_quant:bool=False, int8_model:bool=False, 
 
     if int8_model:
         input_shape = (keras_model.inputs[0].shape[1], keras_model.inputs[0].shape[2])
-        converter.representative_dataset = lambda: representative_dataset_gen(image_root, input_shape)
+        converter.representative_dataset = lambda: representative_dataset_gen(image_root, input_shape, int8_mean, int8_std)
         converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
         converter.target_spec.supported_types = []
         converter.inference_input_type = tf.uint8

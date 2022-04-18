@@ -21,17 +21,17 @@ python converter.py --weights "./your_model.onnx" --outpath "./save_path" --form
 python converter.py --weights "./your_model.onnx" --formats "tflite" --weigthquant
 
 # quantitative model weight, include input and output
-python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 --imgroot "./dataset_path" # recommend
-python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 # generate random data, instead of read from image file
+## recommend
+python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 --imgroot "./dataset_path" --int8mean 0 0 0 --int8std 1 1 1
+## generate random data, instead of read from image file
+python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 ```
 
 ## 注意(Caution)
 - please use [comfirm_acc.py](./test/comfirm_acc.py) comfirm output is correct after convertion, because some of methods rely on practice.
 - comfirm_acc.py only support tflite, and tflite should not be any quantification.
-- tools is going on update.
 - only support 2D CNN, may be support more types of CNN or transformer in the future.
 - 因为大部分是靠实践经验的，所以转换完成最好使用[comfirm_acc.py](./test/comfirm_acc.py)确认转换精度。
-- 目前还没有更新完，我需要一点时间。。。
 - 目前只支持2D卷积网络
 ---
 
