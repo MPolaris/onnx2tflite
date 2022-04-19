@@ -108,6 +108,7 @@ class TFGather():
 class TFTranspose():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
+        self.trans_in, self.trans_out = None, None
         if kwargs.get("perm_list"):
             self.perm_list = kwargs.get("perm_list")
         elif len(node_attribute['perm']) > 4:
@@ -119,10 +120,20 @@ class TFTranspose():
                 self.perm_list.append(new_axis)
             self.perm_list = shape_axis_utils.TorchShape2TF(self.perm_list)
         else:
-            self.perm_list = shape_axis_utils.TorchShape2TF(node_attribute['perm'])
+            self.perm_list = [i for i in node_attribute['perm']]
+            LOG.warning("Transpose 操作将会回到NCHW形式进行")
+            shape_len = len(tensor_grap[node_inputs[0]].shape)
+            self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
+            self.trans_out = [0] + [n for n in range(2, len(self.perm_list))] + [1]
 
     def __call__(self, inputs):
-        return tf.transpose(inputs, perm=self.perm_list)
+        if self.trans_in and self.trans_out:
+            inputs = tf.transpose(inputs, perm=self.trans_in)
+            inputs = tf.transpose(inputs, perm=self.perm_list)
+            inputs = tf.transpose(inputs, perm=self.trans_out)
+            return inputs
+        else:
+            return tf.transpose(inputs, perm=self.perm_list)
 
 @OPERATOR.register_operator("Slice")
 class TFSlice():
@@ -204,7 +215,8 @@ class TFReshape():
     def __call__(self, inputs):
         inputs = tf.transpose(inputs, perm=self.trans_in)
         inputs = tf.reshape(inputs, shape=self.out_shape)
-        return tf.transpose(inputs, perm=self.trans_out)
+        inputs = tf.transpose(inputs, perm=self.trans_out)
+        return inputs
         
 @OPERATOR.register_operator("Flatten")
 class TFFlatten():

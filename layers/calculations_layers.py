@@ -1,6 +1,5 @@
-import numpy as np
-import tensorflow as tf
 import logging
+import tensorflow as tf
 from tensorflow import keras
 
 from . import OPERATOR
@@ -73,3 +72,11 @@ class TFSqrt():
 
     def __call__(self, inputs, *args, **kwargs):
         return tf.sqrt(inputs)
+
+@OPERATOR.register_operator("Exp")
+class TFSqrt():
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def __call__(self, inputs, *args, **kwargs):
+        return tf.exp(inputs)

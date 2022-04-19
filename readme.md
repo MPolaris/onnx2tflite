@@ -50,4 +50,6 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 - UNet\FPN
 - YOLOX
 - YOLOV5
+- MobileNetV2 SSD-Lite
+- MoveNet
 - normal CNN

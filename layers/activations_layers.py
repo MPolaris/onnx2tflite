@@ -1,9 +1,7 @@
-import numpy as np
-import tensorflow as tf
 from tensorflow import keras
 
+from .shape_axis_utils import Torch2TFAxis
 from . import OPERATOR
-from .common_layers import TFPad
 
 @OPERATOR.register_operator("Relu")
 class TFRelu():
@@ -37,3 +35,12 @@ class TFTanh():
 
     def __call__(self, inputs):
         return keras.activations.tanh(inputs)
+
+@OPERATOR.register_operator("Softmax")
+class TFSoftmax():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        super().__init__()
+        self.axis = Torch2TFAxis(node_attribute['axis'])
+
+    def __call__(self, inputs):
+        return keras.activations.softmax(inputs)
