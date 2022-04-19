@@ -43,4 +43,4 @@ class TFSoftmax():
         self.axis = Torch2TFAxis(node_attribute['axis'])
 
     def __call__(self, inputs):
-        return keras.activations.softmax(inputs)
+        return keras.activations.softmax(inputs, axis=self.axis)
