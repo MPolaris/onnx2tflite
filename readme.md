@@ -52,4 +52,6 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 - YOLOV5
 - MobileNetV2 SSD-Lite
 - MoveNet
+- BigGAN
+- DCGAN
 - normal CNN

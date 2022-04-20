@@ -39,6 +39,23 @@ def representative_dataset_gen(img_root, img_size, mean=[0.485, 0.456, 0.406], s
             if i >= 100:
                 break
 
+def decode_node_attribute(node)->dict:
+    op_attr = dict()
+    for x in node.attribute:
+        if x.type == 1:
+            op_attr[x.name] = x.f
+        elif x.type == 2:
+            op_attr[x.name] = x.i
+        elif x.type == 3:
+            op_attr[x.name] = x.s.decode()
+        elif x.type == 4:
+            op_attr[x.name] = numpy_helper.to_array(x.t)
+            if op_attr[x.name].size == 0:
+                op_attr[x.name] = np.array([0])
+        elif x.type == 7:
+            op_attr[x.name] = x.ints
+    return op_attr
+    
 def keras_builder(onnx_model):
     model_graph = onnx_model.graph
     onnx_weights = dict()
@@ -50,21 +67,15 @@ def keras_builder(onnx_model):
         tf_tensor[inp.name] = keras.Input(shape=(input_shape[2], input_shape[3], input_shape[1]), batch_size=input_shape[0])
     
     for node in model_graph.node:
-        op_name, node_inputs, node_outputs, op_attr = node.op_type, node.input, node.output, dict()
-        for x in node.attribute:
-            if x.type == 1:
-                op_attr[x.name] = x.f
-            elif x.type == 2:
-                op_attr[x.name] = x.i
-            elif x.type == 3:
-                op_attr[x.name] = x.s.decode()
-            elif x.type == 7:
-                op_attr[x.name] = x.ints
-
+        op_name, node_inputs, node_outputs = node.op_type, node.input, node.output
+        op_attr = decode_node_attribute(node)
+        
         tf_operator = OPERATOR.get(op_name)
         if tf_operator is None:
             raise KeyError(f"算子 {op_name} 还未实现")
-        tf_tensor[node_outputs[0]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr)(tf_tensor[node_inputs[0]])
+
+        _inputs = None if len(node_inputs) == 0 else tf_tensor[node_inputs[0]]
+        tf_tensor[node_outputs[0]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr)(_inputs)
 
     keras_model = keras.Model(inputs=[tf_tensor[x.name] for x in model_graph.input], outputs=[tf_tensor[x.name] for x in model_graph.output])
     keras_model.trainable = False

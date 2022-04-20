@@ -80,3 +80,11 @@ class TFSqrt():
 
     def __call__(self, inputs, *args, **kwargs):
         return tf.exp(inputs)
+
+@OPERATOR.register_operator("Log")
+class TFLog():
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def __call__(self, inputs, *args, **kwargs):
+        return tf.log(inputs)
