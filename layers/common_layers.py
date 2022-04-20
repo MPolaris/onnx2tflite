@@ -30,16 +30,26 @@ class TFBatchNormalization():
 class TFPad():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
+        self.layers = None
         if node_attribute.get("pads") is not None:
             pad = np.max(node_attribute['pads'])
+            self.pad = tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]])
         elif node_inputs[1] in node_weights:
-            pad = np.max(node_weights[node_inputs[1]])
+            # magic method from https://github.com/gmalivenko/onnx2keras
+            # pad = np.max(node_weights[node_inputs[1]])
+            pads = node_weights[node_inputs[1]]
+            self.pad = [[0, 0], [0, 0], [pads[2], pads[6]], [pads[3], pads[7]]]
+            self.layers = keras.layers.ZeroPadding2D(
+                padding=((pads[2], pads[6]), (pads[3], pads[7]))
+            )
         else:
             pad = np.max(tensor_grap[node_inputs[1]])
-        self.pad = tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]])
+            self.pad = tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]])
         self.model = node_attribute['mode'].upper()
 
     def __call__(self, inputs):
+        if self.layers:
+            return self.layers(inputs)
         return tf.pad(inputs, self.pad, mode=self.model)
 
 @OPERATOR.register_operator("Clip")
@@ -118,6 +128,26 @@ class TFConstant():
 
     def __call__(self, *args, **kwargs):
         return self.val
+
+@OPERATOR.register_operator("ScatterND")
+class TFScatterND():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        # TODO error
+        self.indices = node_weights[node_inputs[1]]
+        shape_len = len(tensor_grap[node_inputs[0]].shape)
+        self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
+        self.trans_out = [0] + [n for n in range(2, shape_len)] + [1]
+        if node_inputs[2] in tensor_grap:
+            self.updates = tf.transpose(tensor_grap[node_inputs[2]], perm=self.trans_in)
+        else:
+            self.updates = node_weights[node_inputs[2]]
+
+    def __call__(self, inputs):
+        inputs = tf.transpose(inputs, perm=self.trans_in)
+        inputs = tf.compat.v1.scatter_nd_update(inputs, self.indices, self.updates)
+        inputs = tf.transpose(inputs, perm=self.trans_out)
+        return inputs
 
 @OPERATOR.register_operator("Resize")
 class TFResize():

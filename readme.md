@@ -49,6 +49,7 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 - VGG
 - UNet\FPN
 - YOLOX
+- YOLOV4
 - YOLOV5
 - MobileNetV2 SSD-Lite
 - MoveNet

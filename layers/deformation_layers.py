@@ -79,7 +79,6 @@ class TFConcat():
     def __call__(self, *args, **kwargs):
         return self.out
 
-
 @OPERATOR.register_operator("Reshape")
 class TFReshape():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
@@ -116,3 +115,29 @@ class TFFlatten():
         if self.trans:
             inputs = self.trans(inputs)
         return tf.reshape(inputs, shape=(1, -1))
+
+@OPERATOR.register_operator("Split")
+class TFSplit():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+        super().__init__()
+        index = kwargs.get('index', 0)
+        start = 0
+        for i in range(index):
+            start += int(node_attribute['split'][i])
+        end = start + node_attribute['split'][index]
+        self.indices = tf.keras.backend.arange(start, end, 1)
+        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get("axis", 1))
+
+    def __call__(self, inputs):
+        return tf.gather(inputs, indices=self.indices, axis=self.axis)
+
+@OPERATOR.register_operator("Expand")
+class TFExpand():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+        super().__init__()
+        self.shape = shape_axis_utils.TorchShape2TF(node_weights[node_inputs[1]])
+
+    def __call__(self, inputs):
+        inputs = tf.repeat(inputs, repeats=int(self.shape[1]//inputs.shape[1]), axis=1)
+        inputs = tf.repeat(inputs, repeats=int(self.shape[2]//inputs.shape[2]), axis=2)
+        return inputs

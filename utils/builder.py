@@ -73,9 +73,10 @@ def keras_builder(onnx_model):
         tf_operator = OPERATOR.get(op_name)
         if tf_operator is None:
             raise KeyError(f"算子 {op_name} 还未实现")
-
+        
         _inputs = None if len(node_inputs) == 0 else tf_tensor[node_inputs[0]]
-        tf_tensor[node_outputs[0]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr)(_inputs)
+        for index in range(len(node_outputs)):
+            tf_tensor[node_outputs[index]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, index=index)(_inputs)
 
     keras_model = keras.Model(inputs=[tf_tensor[x.name] for x in model_graph.input], outputs=[tf_tensor[x.name] for x in model_graph.output])
     keras_model.trainable = False
