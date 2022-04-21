@@ -22,11 +22,12 @@ def main(onnx_model_path, tflite_model_path, interest_layers = []):
     model_tflite.set_tensor(input_details[0]['index'], X)
     model_tflite.invoke()
     tflite_output = model_tflite.get_tensor(output_details[0]['index'])
+    print("tflite_out.shape = ", tflite_output.shape)
     if len(tflite_output.shape) > 2 and onnx_out.shape != tflite_output.shape:
         shape = [i for i in range(len(tflite_output.shape))]
         newshape = [shape[0], shape[-1], *shape[1:-1]]
         tflite_output = tflite_output.transpose(*newshape)
-    print("tflite_out.shape = ", tflite_output.shape)
+    print("tflite_out_reshape.shape = ", tflite_output.shape)
     assert len(onnx_out) == len(tflite_output) and onnx_out.shape == tflite_output.shape, "输出不一致"
     diff = np.abs(onnx_out - tflite_output)
     mean = np.mean(diff)
@@ -36,7 +37,7 @@ def main(onnx_model_path, tflite_model_path, interest_layers = []):
     return [mean, max]
 
 if __name__ == "__main__":
-    main(onnx_model_path = "./models/yolov5n.onnx",
-            tflite_model_path = "./models/yolov5n.tflite",
+    main(onnx_model_path = "./models/yolov4.onnx",
+            tflite_model_path = "./models/yolov4.tflite",
             interest_layers = []
             )
