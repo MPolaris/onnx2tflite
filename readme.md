@@ -44,21 +44,21 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 
 ## Pytorch -> ONNX -> Tensorflow-Keras -> Tensorflow-Lite
 
-- <h3>From torchvision to Tensorflow-Lite</h3>
+- <h3>From torchvision to tensorflow-lite</h3>
 ```python
 import torch
 import torchvision
 _input = torch.randn(1, 3, 224, 224)
 model = torchvision.models.mobilenet_v2(True)
 # use default settings is ok
-torch.onnx.export(model, _input, './mobilenetV2.onnx', opset_version=11)#or opset_version=13
+torch.onnx.export(model, _input, './mobilenetV2.onnx', opset_version=11)# or opset_version=13
 
 from converter import onnx_converter
 onnx_converter(
     onnx_model_path = "./mobilenetV2.onnx",
     need_simplify = False,
     output_path = "./",
-    target_formats = ['tflite'], #or ['keras'], ['keras', 'tflite']
+    target_formats = ['tflite'], # or ['keras'], ['keras', 'tflite']
     weight_quant = False,
     int8_model = False,
     int8_mean = None
@@ -66,7 +66,7 @@ onnx_converter(
     image_root = None
 )
 ```
-- <h3>From custom pytorch model -> ONNX</h3>
+- <h3>From custom pytorch model to tensorflow-lite-int8</h3>
 ```python
 import torch
 import torch.nn as nn
@@ -87,7 +87,7 @@ model = MyModel()
 model.load_state_dict(torch.load("model_checkpoint.pth", map_location="cpu"))
 
 _input = torch.randn(1, 3, 224, 224)
-torch.onnx.export(model, _input, './mymodel.onnx', opset_version=11)#or opset_version=13
+torch.onnx.export(model, _input, './mymodel.onnx', opset_version=11)# or opset_version=13
 
 from converter import onnx_converter
 onnx_converter(
