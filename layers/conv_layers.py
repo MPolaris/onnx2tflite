@@ -10,7 +10,7 @@ class Convlution():
         super().__init__()
         out_channel, in_channel = node_weights[node_inputs[1]].shape[:2]
         dilations, group = node_attribute.get('dilations', 1), node_attribute.get('group', 1)
-        pads = node_attribute['pads'][0] if "pads" in node_attribute else None
+        pads = node_attribute['pads'] if "pads" in node_attribute else None
         kernel_shape, strides = node_attribute.get('kernel_shape', 1), node_attribute.get('strides', 1)
 
         weights = node_weights[node_inputs[1]].transpose(2,3,1,0)
@@ -26,12 +26,6 @@ class Convlution():
     
     def __call__(self, inputs):
         return self.conv(inputs)
-
-
-def autopad(k, p=None):
-    if p is None:
-        p = k // 2 if isinstance(k, int) else [x // 2 for x in k]
-    return p
 
 class TFConv():
     # 常规卷积Standard convolution
@@ -51,9 +45,13 @@ class TFConv():
             bias_initializer='zeros' if bias is None else keras.initializers.Constant(bias),
             dilation_rate=dilations)
         self.pad =None
-        if pads is not None:
-            pad_attr = {"pads": autopad(kernel_size, pads), "mode": "constant"}
-            self.pad = TFPad(None, None, None, node_attribute=pad_attr)
+        if pads is not None and max(pads) != 0:
+            padding = None
+            if len(pads) == 2 and (pads[0] > 0 or pads[1] > 0):
+                padding = (pads[0], pads[1])
+            elif len(pads) == 4 and (pads[0] > 0 or pads[1] > 0 or pads[2] > 0 or pads[3] > 0):
+                padding = ((pads[0], pads[2]), (pads[1], pads[3]))
+            self.pad = keras.layers.ZeroPadding2D(padding=padding)
 
     def __call__(self, inputs):
         if self.pad:
@@ -77,11 +75,14 @@ class TFGroupConv():
         self.cin = in_channel_num
         self.groups = groups
         out_channel_num = int(out_channel_num//groups)
-        if pads is None:
-            self.pad = None
-        else:
-            pad_attr = {"pads": autopad(kernel_size, pads), "mode": "constant"}
-            self.pad = TFPad(None, None, None, node_attribute=pad_attr)
+        self.pad =None
+        if pads is not None and max(pads) != 0:
+            padding = None
+            if len(pads) == 2 and (pads[0] > 0 or pads[1] > 0):
+                padding = (pads[0], pads[1])
+            elif len(pads) == 4 and (pads[0] > 0 or pads[1] > 0 or pads[2] > 0 or pads[3] > 0):
+                padding = ((pads[0], pads[2]), (pads[1], pads[3]))
+            self.pad = keras.layers.ZeroPadding2D(padding=padding)
         
         self.convs = []
         for i in range(groups):
@@ -117,10 +118,14 @@ class TFDepthwiseConv2D():
             kernel_initializer='zeros',
             bias_initializer='zeros'
         )
-        self.pad = None
-        if pads is not None:
-            pad_attr = {"pads": autopad(kernel_size, pads), "mode": "constant"}
-            self.pad = TFPad(None, None, None, node_attribute=pad_attr)
+        self.pad =None
+        if pads is not None and max(pads) != 0:
+            padding = None
+            if len(pads) == 2 and (pads[0] > 0 or pads[1] > 0):
+                padding = (pads[0], pads[1])
+            elif len(pads) == 4 and (pads[0] > 0 or pads[1] > 0 or pads[2] > 0 or pads[3] > 0):
+                padding = ((pads[0], pads[2]), (pads[1], pads[3]))
+            self.pad = keras.layers.ZeroPadding2D(padding=padding)
             
     def __call__(self, inputs):
         if self.pad:

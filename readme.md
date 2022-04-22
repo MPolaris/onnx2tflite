@@ -56,7 +56,7 @@ torch.onnx.export(model, _input, './mobilenetV2.onnx', opset_version=11)# or ops
 from converter import onnx_converter
 onnx_converter(
     onnx_model_path = "./mobilenetV2.onnx",
-    need_simplify = False,
+    need_simplify = True,
     output_path = "./",
     target_formats = ['tflite'], # or ['keras'], ['keras', 'tflite']
     weight_quant = False,
@@ -92,7 +92,7 @@ torch.onnx.export(model, _input, './mymodel.onnx', opset_version=11)# or opset_v
 from converter import onnx_converter
 onnx_converter(
     onnx_model_path = "./mymodel.onnx",
-    need_simplify = False,
+    need_simplify = True,
     output_path = "./",
     target_formats = ['tflite'], #or ['keras'], ['keras', 'tflite']
     weight_quant = False,
@@ -108,14 +108,15 @@ onnx_converter(
 - Resnet
 - Densenet
 - Mobilenet
+- Inceptionnet
 - Alexnet
 - VGG
 - UNet\FPN
 - YOLOX
+- YOLOV3
 - YOLOV4
 - YOLOV5
 - MobileNetV2 SSD-Lite
 - MoveNet
-- BigGAN
 - DCGAN
 - normal CNN

@@ -141,3 +141,21 @@ class TFExpand():
         inputs = tf.repeat(inputs, repeats=int(self.shape[1]//inputs.shape[1]), axis=1)
         inputs = tf.repeat(inputs, repeats=int(self.shape[2]//inputs.shape[2]), axis=2)
         return inputs
+
+@OPERATOR.register_operator("Unsqueeze")
+class TFUnsqueeze():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+        super().__init__()
+        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axes'][0])
+
+    def __call__(self, inputs):
+        return tf.expand_dims(inputs, self.axis)
+
+@OPERATOR.register_operator("Squeeze")
+class TFSqueeze():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+        super().__init__()
+        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axes'][0])
+
+    def __call__(self, inputs):
+        return tf.squeeze(inputs, self.axis)

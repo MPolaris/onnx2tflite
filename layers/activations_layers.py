@@ -44,3 +44,11 @@ class TFSoftmax():
 
     def __call__(self, inputs):
         return keras.activations.softmax(inputs, axis=self.axis)
+
+@OPERATOR.register_operator("Selu")
+class TFSelu():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return keras.activations.selu(inputs)
