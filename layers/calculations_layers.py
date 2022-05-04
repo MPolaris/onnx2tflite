@@ -48,6 +48,16 @@ class TFDiv():
     def __call__(self, *args, **kwargs):
         return self.t1 / self.t2
 
+@OPERATOR.register_operator("MatMul")
+class TFMatMul():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
+        self.t2 = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[1]])
+
+    def __call__(self, *args, **kwargs):
+        return tf.matmul(self.t1, self.t2)
+
 @OPERATOR.register_operator("Pow")
 class TFPow():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
@@ -59,7 +69,7 @@ class TFPow():
 
 @OPERATOR.register_operator("Reciprocal")
 class TFReciprocal():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__()
 
     def __call__(self, inputs, *args, **kwargs):
@@ -67,7 +77,7 @@ class TFReciprocal():
 
 @OPERATOR.register_operator("Sqrt")
 class TFSqrt():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__()
 
     def __call__(self, inputs, *args, **kwargs):
@@ -88,3 +98,19 @@ class TFLog():
 
     def __call__(self, inputs, *args, **kwargs):
         return tf.log(inputs)
+
+@OPERATOR.register_operator("ReduceMean")
+class TFReduceMean():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.keep_dims = node_attribute.get("keepdims", 0) == 1
+        input_shape_len = len(tensor_grap[node_inputs[0]].shape)
+        if input_shape_len > 2:
+            # TODO
+            raise NotImplementedError("ReduceMean not implemented when input shape length > 2")
+        else:
+            self.axis = [shape_axis_utils.Torch2TFAxis(i) if i >=0 else input_shape_len + i for i in node_attribute.get("axes", [-1])]
+
+
+    def __call__(self, inputs, *args, **kwargs):
+        return tf.math.reduce_mean(inputs, axis=self.axis, keepdims=self.keep_dims)

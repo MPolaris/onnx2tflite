@@ -14,7 +14,10 @@ def main(onnx_model_path, tflite_model_path, interest_layers = []):
         onnx_out = model_onnx.forward(X)[-1]
         print("inner_layer.shape = ", onnx_out.shape)
 
-    X = X.transpose(0, 2, 3, 1)
+    if len(X.shape) > 2:
+        _transpose_index = [i for i in range(len(X.shape))]
+        _transpose_index = _transpose_index[0:1] + _transpose_index[2:] + _transpose_index[1:2]
+        X = X.transpose(*_transpose_index)
     model_tflite = tf.lite.Interpreter(model_path=tflite_model_path)
     model_tflite.allocate_tensors()
     input_details, output_details  = model_tflite.get_input_details(), model_tflite.get_output_details()
@@ -37,7 +40,7 @@ def main(onnx_model_path, tflite_model_path, interest_layers = []):
     return [mean, max]
 
 if __name__ == "__main__":
-    main(onnx_model_path = "./models/yolov4.onnx",
-            tflite_model_path = "./models/yolov4.tflite",
+    main(onnx_model_path = "./models/myonnx.onnx",
+            tflite_model_path = "./models/myonnx.tflite",
             interest_layers = []
             )

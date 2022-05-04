@@ -64,7 +64,9 @@ def keras_builder(onnx_model):
     tf_tensor, input_shape = {}, []
     for inp in model_graph.input:
         input_shape = [x.dim_value for x in inp.type.tensor_type.shape.dim]
-        tf_tensor[inp.name] = keras.Input(shape=(input_shape[2], input_shape[3], input_shape[1]), batch_size=input_shape[0])
+        batch_szie = input_shape[0]
+        input_shape = input_shape[2:] + input_shape[1:2]
+        tf_tensor[inp.name] = keras.Input(shape=input_shape, batch_size=batch_szie)
     
     for node in model_graph.node:
         op_name, node_inputs, node_outputs = node.op_type, node.input, node.output
@@ -72,7 +74,7 @@ def keras_builder(onnx_model):
         
         tf_operator = OPERATOR.get(op_name)
         if tf_operator is None:
-            raise KeyError(f"算子 {op_name} 还未实现")
+            raise KeyError(f"{op_name} not yet implemented")
         
         _inputs = None if len(node_inputs) == 0 else tf_tensor[node_inputs[0]]
         for index in range(len(node_outputs)):
