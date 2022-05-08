@@ -13,7 +13,6 @@ class TFAdd():
         super().__init__()
         self.t1 = tensor_grap[node_inputs[0]] if node_inputs[0] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[0]])
         self.t2 = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else shape_axis_utils.TorchWeights2TF(node_weights[node_inputs[1]])
-        debug = 1
 
     def __call__(self, *args, **kwargs):
         return self.t1 + self.t2
@@ -111,6 +110,31 @@ class TFReduceMean():
         else:
             self.axis = [shape_axis_utils.Torch2TFAxis(i) if i >=0 else input_shape_len + i for i in node_attribute.get("axes", [-1])]
 
-
     def __call__(self, inputs, *args, **kwargs):
         return tf.math.reduce_mean(inputs, axis=self.axis, keepdims=self.keep_dims)
+
+@OPERATOR.register_operator("ArgMax")
+class TFArgMax():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axis'])
+        self.keepdims = node_attribute.get("keepdims", 0) == 1
+
+    def __call__(self, inputs, *args, **kwargs):
+        _inputs = tf.argmax(inputs, axis=self.axis)
+        if self.keepdims:
+            _inputs = tf.expand_dims(_inputs, axis=self.axis)
+        return _inputs
+
+@OPERATOR.register_operator("ArgMin")
+class TFArgMin():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axis'])
+        self.keepdims = node_attribute.get("keepdims", 0) == 1
+
+    def __call__(self, inputs, *args, **kwargs):
+        _inputs = tf.argmax(inputs, axis=self.axis)
+        if self.keepdims:
+            _inputs = tf.expand_dims(_inputs, axis=self.axis)
+        return _inputs
