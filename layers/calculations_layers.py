@@ -104,14 +104,32 @@ class TFReduceMean():
         super().__init__()
         self.keep_dims = node_attribute.get("keepdims", 0) == 1
         input_shape_len = len(tensor_grap[node_inputs[0]].shape)
-        if input_shape_len > 2:
-            # TODO
-            raise NotImplementedError("ReduceMean not implemented when input shape length > 2")
-        else:
-            self.axis = [shape_axis_utils.Torch2TFAxis(i) if i >=0 else input_shape_len + i for i in node_attribute.get("axes", [-1])]
+        self.axes = [shape_axis_utils.Torch2TFAxis(i) if i >=0 else input_shape_len + i for i in node_attribute.get("axes", [-1])]
 
     def __call__(self, inputs, *args, **kwargs):
-        return tf.math.reduce_mean(inputs, axis=self.axis, keepdims=self.keep_dims)
+        return tf.math.reduce_mean(inputs, axis=self.axes, keepdims=self.keep_dims)
+
+@OPERATOR.register_operator("ReduceMax")
+class TFReduceMax():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.keep_dims = node_attribute.get("keepdims", 0) == 1
+        input_shape_len = len(tensor_grap[node_inputs[0]].shape)
+        self.axes = [shape_axis_utils.Torch2TFAxis(i) if i >=0 else input_shape_len + i for i in node_attribute.get("axes", [-1])]
+
+    def __call__(self, inputs, *args, **kwargs):
+        return tf.math.reduce_max(inputs, axis=self.axes, keepdims=self.keep_dims)
+
+@OPERATOR.register_operator("ReduceMin")
+class TFReduceMin():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.keep_dims = node_attribute.get("keepdims", 0) == 1
+        input_shape_len = len(tensor_grap[node_inputs[0]].shape)
+        self.axes = [shape_axis_utils.Torch2TFAxis(i) if i >=0 else input_shape_len + i for i in node_attribute.get("axes", [-1])]
+
+    def __call__(self, inputs, *args, **kwargs):
+        return tf.math.reduce_min(inputs, axis=self.axes, keepdims=self.keep_dims)
 
 @OPERATOR.register_operator("ArgMax")
 class TFArgMax():

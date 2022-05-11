@@ -1,3 +1,4 @@
+import tensorflow as tf
 from tensorflow import keras
 
 from .shape_axis_utils import Torch2TFAxis
@@ -27,6 +28,22 @@ class TFLeakyRelu():
 
     def __call__(self, inputs):
         return keras.activations.relu(inputs, alpha=self.alpha)
+
+@OPERATOR.register_operator("Sin")
+class TFSin():
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return tf.sin(inputs)
+
+@OPERATOR.register_operator("Cos")
+class TFCos():
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return tf.cos(inputs)
 
 @OPERATOR.register_operator("Tanh")
 class TFTanh():
