@@ -36,9 +36,9 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 ---
 
 ## 添加新算子时，API查询地址(API reference docs)
-- onnx_api : https://github.com/onnx/onnx/blob/main/docs/Operators.md
-- tensorflow_api : https://tensorflow.google.cn/api_docs/python/tf
 - keras_api : https://keras.io/search.html
+- tensorflow_api : https://tensorflow.google.cn/api_docs/python/tf
+- onnx_api : https://github.com/onnx/onnx/blob/main/docs/Operators.md
 ---
 
 ## Pytorch -> ONNX -> Tensorflow-Keras -> Tensorflow-Lite
@@ -104,12 +104,13 @@ onnx_converter(
 
 ---
 ## 已验证的模型列表(support models)
-- Resnet
-- Densenet
-- Mobilenet
-- Inceptionnet
-- Alexnet
-- VGG
+- Resnet(torchvision)
+- Densenet(torchvision)
+- shufflenet(torchvision)
+- Mobilenet(torchvision)
+- Inceptionnet(torchvision)
+- Alexnet(torchvision)
+- VGG(torchvision)
 - UNet\FPN
 - YOLOX
 - YOLOV3
@@ -121,3 +122,5 @@ onnx_converter(
 - MLP
 - AutoEncoder/VAE
 - normal CNN
+
+---
