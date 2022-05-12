@@ -26,6 +26,20 @@ class TFBatchNormalization():
     def __call__(self, inputs):
         return self.bn(inputs)
 
+@OPERATOR.register_operator("InstanceNormalization")
+class TFInstanceNormalization():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.epsilon = node_attribute.get("epsilon", 1e-5)
+        self.scale = node_weights[node_inputs[1]]
+        self.bias = node_weights[node_inputs[2]]
+
+    def __call__(self, inputs):
+        axes = tuple(range(1, len(inputs.shape)-1))
+        mean = tf.reduce_mean(inputs, axis=axes, keepdims=True)
+        var = tf.math.reduce_variance(inputs, axis= axes, keepdims=True)
+        return self.scale*(inputs - mean)/tf.sqrt(var + self.epsilon) + self.bias
+
 @OPERATOR.register_operator("Pad")
 class TFPad():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
