@@ -12,6 +12,16 @@ class TFRelu():
     def __call__(self, inputs):
         return keras.activations.relu(inputs)
 
+@OPERATOR.register_operator("HardSigmoid")
+class TFHardSigmoid():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        super().__init__()
+        self.alpha = node_attribute.get("alpha", 0.2)
+        self.beta = node_attribute.get("beta", 0.5)
+
+    def __call__(self, inputs):
+        return tf.clip_by_value(self.alpha*inputs+self.beta, 0, 1)
+
 @OPERATOR.register_operator("Sigmoid")
 class TFSigmoid():
     def __init__(self, *args, **kwargs) -> None:

@@ -111,6 +111,7 @@ onnx_converter(
 - Inceptionnet(torchvision)
 - Alexnet(torchvision)
 - VGG(torchvision)
+- DeeplabV3(torchvision)
 - UNet\FPN
 - YOLOX
 - YOLOV3
