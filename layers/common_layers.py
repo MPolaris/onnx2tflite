@@ -1,10 +1,10 @@
+import math
+import logging
 import numpy as np
 import tensorflow as tf
-import logging
 from tensorflow import keras
 
 from . import OPERATOR
-from . import shape_axis_utils
 
 LOG = logging.getLogger("common_layers :")
 
@@ -88,35 +88,62 @@ class TFGlobalAveragePool():
 class TFAveragePool():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
+        kernel_shape = node_attribute.get("kernel_shape", [2, 2])
+        strides = strides=node_attribute.get("strides", [1, 1])
+        ceil_mode = node_attribute.get("ceil_mode", 0)
+        pads = node_attribute.get("pads", [0, 0, 0, 0])
+
+        inputshape = tensor_grap[node_inputs[0]].shape
+        half_shape = True
+        for i in range(len(inputshape)-2):
+            if ceil_mode == 0:
+                half_shape = half_shape and math.floor((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
+            else:
+                half_shape = half_shape and math.ceil((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
+
+        pad_mode = "SAME" if half_shape else "VALID" 
         self.avg_pool = keras.layers.AveragePooling2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
                                                         strides=node_attribute.get("strides", [1])[0], padding='VALID')
-        self.pad = node_attribute.get("pads", None)
-        if self.pad is not None:
-            self.pad = TFPad(None, None, None, {"pads": self.pad[0], "mode": "constant"})
+        
+        self.pad = None
+        if not half_shape and pads is not None and np.sum(pads) > 0:
+            self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
 
     def __call__(self, inputs):
         if self.pad:
-            return self.avg_pool(self.pad(inputs))
-        else:
-            return self.avg_pool(inputs)
+            inputs = self.pad(inputs)
+        return self.avg_pool(inputs)
 
 @OPERATOR.register_operator("MaxPool")
 class TFMaxPool():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
-        # TODO 这个操作会导致转换误差增大，估计是pad的问题导致的。
+        kernel_shape = node_attribute.get("kernel_shape", [2, 2])
+        strides = strides=node_attribute.get("strides", [1, 1])
+        ceil_mode = node_attribute.get("ceil_mode", 0)
+        pads = node_attribute.get("pads", [0, 0, 0, 0])
+
+        inputshape = tensor_grap[node_inputs[0]].shape
+        half_shape = True
+        for i in range(len(inputshape)-2):
+            if ceil_mode == 0:
+                half_shape = half_shape and math.floor((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
+            else:
+                half_shape = half_shape and math.ceil((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
+
+        pad_mode = "SAME" if half_shape else "VALID" 
         self.max_pool = keras.layers.MaxPool2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
-                                                 strides=node_attribute.get("strides", [1])[0], padding='VALID')
-        self.pad = node_attribute.get("pads", None)
-        if self.pad is not None:
-            self.pad = TFPad(None, None, None, {"pads": self.pad[0], "mode": "constant"})
-            # self.pad = keras.layers.ZeroPadding2D(padding=((self.pad[0], self.pad[1]), (self.pad[2], self.pad[3])))
+                                                 strides=node_attribute.get("strides", [1])[0], padding=pad_mode)
+        
+        self.pad = None
+        if not half_shape and pads is not None and np.sum(pads) > 0:
+            self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
+            
 
     def __call__(self, inputs):
         if self.pad:
-            return self.max_pool(self.pad(inputs))
-        else:
-            return self.max_pool(inputs)
+            inputs = self.pad(inputs)
+        return self.max_pool(inputs)
 
 @OPERATOR.register_operator("Upsample")
 class TFUpsample():

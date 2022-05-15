@@ -104,14 +104,6 @@ onnx_converter(
 
 ---
 ## 已验证的模型列表(support models)
-- Resnet(torchvision)
-- Densenet(torchvision)
-- shufflenet(torchvision)
-- Mobilenet(torchvision)
-- Inceptionnet(torchvision)
-- Alexnet(torchvision)
-- VGG(torchvision)
-- DeeplabV3(torchvision)
 - UNet\FPN
 - YOLOX
 - YOLOV3
@@ -123,5 +115,16 @@ onnx_converter(
 - MLP
 - AutoEncoder/VAE
 - normal CNN
+- Resnet(torchvision)
+- Resnext(torchvision)
+- mnasnet(torchvision)
+- squeezenet(torchvision)
+- Densenet(torchvision)
+- shufflenet(torchvision)
+- Mobilenet(torchvision)
+- Inceptionnet(torchvision)
+- Alexnet(torchvision)
+- VGG(torchvision)
+- DeeplabV3(torchvision)
 
 ---
