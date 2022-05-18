@@ -8,9 +8,6 @@ python converter.py --weights "./your_model.onnx"
 # give save path
 python converter.py --weights "./your_model.onnx" --outpath "./save_path"
 
-# save keras model
-python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "keras"
-
 # save tflite model
 python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite"
 
@@ -32,18 +29,11 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 - please use [comfirm_acc.py](./test/comfirm_acc.py) comfirm output is correct after convertion, because some of methods rely on practice.
 - comfirm_acc.py only support tflite, and tflite should not be any quantification.
 - only support 2D CNN and MLP, may be support more types of CNN or transformer in the future.
-- 因为大部分是靠实践经验的，所以转换完成最好使用[comfirm_acc.py](./test/comfirm_acc.py)确认转换精度。
----
-
-## 添加新算子时，API查询地址(API reference docs)
-- keras_api : https://keras.io/search.html
-- tensorflow_api : https://tensorflow.google.cn/api_docs/python/tf
-- onnx_api : https://github.com/onnx/onnx/blob/main/docs/Operators.md
 ---
 
 ## Pytorch -> ONNX -> Tensorflow-Keras -> Tensorflow-Lite
 
-- <h3>From torchvision to tensorflow-lite</h3>
+- ### From torchvision to tensorflow-lite
 ```python
 import torch
 import torchvision
@@ -65,7 +55,7 @@ onnx_converter(
     image_root = None
 )
 ```
-- <h3>From custom pytorch model to tensorflow-lite-int8</h3>
+- ### From custom pytorch model to tensorflow-lite-int8
 ```python
 import torch
 import torch.nn as nn
