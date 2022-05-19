@@ -7,11 +7,10 @@ def main(onnx_model_path, tflite_model_path, interest_layers = []):
     model_onnx = ONNXModel(onnx_model_path, interest_layers)
 
     X = np.random.randn(*model_onnx.input_shape).astype(np.float32)*10
+    onnx_out = model_onnx.forward(X)[-1]
     if len(interest_layers) == 0:
-        onnx_out = model_onnx.forward(X)[-1]
         print("onnx_out.shape = ", onnx_out.shape)
     else:
-        onnx_out = model_onnx.forward(X)[-1]
         print("inner_layer.shape = ", onnx_out.shape)
 
     if len(X.shape) > 2:
@@ -26,7 +25,7 @@ def main(onnx_model_path, tflite_model_path, interest_layers = []):
     model_tflite.invoke()
     tflite_output = model_tflite.get_tensor(output_details[0]['index'])
     print("tflite_out.shape = ", tflite_output.shape)
-    if len(tflite_output.shape) > 2 and onnx_out.shape != tflite_output.shape:
+    if len(tflite_output.shape) > 2 or onnx_out.shape != tflite_output.shape:
         shape = [i for i in range(len(tflite_output.shape))]
         newshape = [shape[0], shape[-1], *shape[1:-1]]
         tflite_output = tflite_output.transpose(*newshape)
@@ -40,7 +39,7 @@ def main(onnx_model_path, tflite_model_path, interest_layers = []):
     return [mean, max]
 
 if __name__ == "__main__":
-    main(onnx_model_path = "./models/myonnx.onnx",
-            tflite_model_path = "./models/myonnx.tflite",
+    main(onnx_model_path = "./models/shufflenet.onnx",
+            tflite_model_path = "./models/shufflenet.tflite",
             interest_layers = []
             )

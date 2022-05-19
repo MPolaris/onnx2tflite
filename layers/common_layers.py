@@ -101,9 +101,10 @@ class TFAveragePool():
             else:
                 half_shape = half_shape and math.ceil((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
 
+        half_shape = half_shape and np.sum(pads) == 0
         pad_mode = "SAME" if half_shape else "VALID" 
         self.avg_pool = keras.layers.AveragePooling2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
-                                                        strides=node_attribute.get("strides", [1])[0], padding='VALID')
+                                                        strides=node_attribute.get("strides", [1])[0], padding=pad_mode)
         
         self.pad = None
         if not half_shape and pads is not None and np.sum(pads) > 0:
@@ -131,6 +132,7 @@ class TFMaxPool():
             else:
                 half_shape = half_shape and math.ceil((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
 
+        half_shape = half_shape and np.sum(pads) == 0
         pad_mode = "SAME" if half_shape else "VALID" 
         self.max_pool = keras.layers.MaxPool2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
                                                  strides=node_attribute.get("strides", [1])[0], padding=pad_mode)
