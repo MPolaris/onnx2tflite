@@ -50,12 +50,8 @@ class TFPad():
             self.pad = tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]])
         elif node_inputs[1] in node_weights:
             # magic method from https://github.com/gmalivenko/onnx2keras
-            # pad = np.max(node_weights[node_inputs[1]])
             pads = node_weights[node_inputs[1]]
-            self.pad = [[0, 0], [0, 0], [pads[2], pads[6]], [pads[3], pads[7]]]
-            self.layers = keras.layers.ZeroPadding2D(
-                padding=((pads[2], pads[6]), (pads[3], pads[7]))
-            )
+            self.layers = keras.layers.ZeroPadding2D(padding=((pads[2], pads[6]), (pads[3], pads[7])))
         else:
             pad = np.max(tensor_grap[node_inputs[1]])
             self.pad = tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]])
@@ -64,7 +60,8 @@ class TFPad():
     def __call__(self, inputs):
         if self.layers:
             return self.layers(inputs)
-        return tf.pad(inputs, self.pad, mode=self.model)
+        else:
+            return tf.pad(inputs, self.pad, mode=self.model)
 
 @OPERATOR.register_operator("Clip")
 class TFClip():
