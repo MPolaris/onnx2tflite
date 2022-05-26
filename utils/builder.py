@@ -76,7 +76,10 @@ def keras_builder(onnx_model):
         if tf_operator is None:
             raise KeyError(f"{op_name} not yet implemented")
         
-        _inputs = None if len(node_inputs) == 0 else tf_tensor[node_inputs[0]]
+        _inputs = None 
+        if len(node_inputs) > 0:
+            _inputs = tf_tensor[node_inputs[0]] if node_inputs[0] in tf_tensor else onnx_weights[node_inputs[0]]
+
         for index in range(len(node_outputs)):
             tf_tensor[node_outputs[index]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, index=index)(_inputs)
 
@@ -89,7 +92,7 @@ def keras_builder(onnx_model):
 def tflite_builder(keras_model, weight_quant:bool=False, int8_model:bool=False, image_root:str=None,
                     int8_mean:list or float = [0.485, 0.456, 0.406], int8_std:list or float = [0.229, 0.224, 0.225]):
     converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
-    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
+    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
     if weight_quant or int8_model:
         converter.experimental_new_converter = True
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
