@@ -44,24 +44,17 @@ class TFInstanceNormalization():
 class TFPad():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        self.layers = None
         if node_attribute.get("pads") is not None:
-            pad = np.max(node_attribute['pads'])
-            self.pad = tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]])
+            pads = node_attribute['pads']
         elif node_inputs[1] in node_weights:
-            # magic method from https://github.com/gmalivenko/onnx2keras
             pads = node_weights[node_inputs[1]]
-            self.layers = keras.layers.ZeroPadding2D(padding=((pads[2], pads[6]), (pads[3], pads[7])))
         else:
-            pad = np.max(tensor_grap[node_inputs[1]])
-            self.pad = tf.constant([[0, 0], [pad, pad], [pad, pad], [0, 0]])
-        self.model = node_attribute['mode'].upper()
+            pads = tensor_grap[node_inputs[1]]
+        self.pad = [[pads[0], pads[4]], [pads[2], pads[6]], [pads[3], pads[7]], [pads[1], pads[5]]]
+        self.model = node_attribute.get("mode", "constant").upper()
 
     def __call__(self, inputs):
-        if self.layers:
-            return self.layers(inputs)
-        else:
-            return tf.pad(inputs, self.pad, mode=self.model)
+        return tf.pad(inputs, self.pad, mode=self.model)
 
 @OPERATOR.register_operator("Clip")
 class TFClip():
