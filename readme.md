@@ -24,11 +24,16 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 --im
 python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 ```
 ---
+## TODO
+- [ ] support Transofomer, VIT\Swin Trasnformer etc...
+- [ ] support cutoff onnx model and specify output layer
+- [ ] add unit test and optimize [comfirm_acc.py](./test/comfirm_acc.py)
+- [ ] add simple code comments.
+---
 
 ## 注意(Caution)
 - please use [comfirm_acc.py](./test/comfirm_acc.py) comfirm output is correct after convertion, because some of methods rely on practice.
 - comfirm_acc.py only support tflite, and tflite should not be any quantification.
-- only support 2D CNN and MLP, may be support more types of CNN or transformer in the future.
 ---
 
 ## Pytorch -> ONNX -> Tensorflow-Keras -> Tensorflow-Lite
