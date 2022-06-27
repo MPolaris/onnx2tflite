@@ -1,7 +1,5 @@
 
 def Torch2TFAxis(axis):
-    if axis < 0:
-        return axis
     if axis == 0:
         axis = 0
     elif axis == 1:
