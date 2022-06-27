@@ -39,6 +39,21 @@ class TFLeakyRelu():
     def __call__(self, inputs):
         return keras.activations.relu(inputs, alpha=self.alpha)
 
+@OPERATOR.register_operator("PRelu")
+class TFPRelu():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        super().__init__()
+        if 'slope' in node_attribute:
+            self.slope = node_attribute['slope'].transpose(1, 2, 0)
+        elif node_inputs[1] in node_weights:
+            self.slope = node_weights[node_inputs[1]].transpose(1, 2, 0)
+        else:
+            self.slope = tensor_grap[node_inputs[1]]
+        self.PRelu = tf.keras.layers.PReLU(weights=[self.slope], shared_axes = [1, 2])
+
+    def __call__(self, inputs):
+        return self.PRelu(inputs)
+
 @OPERATOR.register_operator("Sin")
 class TFSin():
     def __init__(self, *args, **kwargs) -> None:
