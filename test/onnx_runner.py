@@ -26,6 +26,8 @@ class ONNXModel():
         for node in onnx_session.get_inputs():
             input_name.append(node.name)
             self.in_shape = node.shape
+            if isinstance(self.in_shape[0], str):
+                self.in_shape[0] = 1
         return input_name
         
     @property

@@ -15,11 +15,16 @@ except:
 def load_onnx_modelproto(onnx_model_path:str, need_simplify:bool=True):
     if not os.path.exists(onnx_model_path):
         return None
+    model_proto = onnx.load(onnx_model_path)
+    dynamic_input = False
+    for inp in model_proto.graph.input:
+        for x in inp.type.tensor_type.shape.dim:
+            if x.dim_value == 0:
+                dynamic_input = True
+                break
     if need_simplify:
-        model_proto, success = simplify(onnx_model_path, check_n=2)
+        model_proto, success = simplify(model_proto, check_n=2, dynamic_input_shape=dynamic_input)
         if not success:
             LOG.warning(f"模型优化失败, 从{onnx_model_path}加载")
             model_proto = onnx.load(onnx_model_path)
-    else:
-        model_proto = onnx.load(onnx_model_path)
     return model_proto
