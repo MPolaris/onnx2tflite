@@ -19,7 +19,7 @@ def load_onnx_modelproto(onnx_model_path:str, need_simplify:bool=True):
     dynamic_input = False
     for inp in model_proto.graph.input:
         for x in inp.type.tensor_type.shape.dim:
-            if x.dim_value == 0:
+            if x.dim_value <= 0:
                 dynamic_input = True
                 break
     if need_simplify:

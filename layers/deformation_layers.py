@@ -49,10 +49,15 @@ class TFSlice():
             self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axes'][0])
             self.steps = 1
         else:
-            self.starts = node_weights[node_inputs[1]][0]
-            self.axis = shape_axis_utils.Torch2TFAxis(node_weights[node_inputs[3]][0])
-            self.ends = min(node_weights[node_inputs[2]][0], tensor_grap[node_inputs[0]].shape[self.axis])
-            self.steps = 1 if len(node_inputs) < 5 else node_weights[node_inputs[4]][0]
+            self.starts = node_weights[node_inputs[1]][0] if node_inputs[1] in node_weights else tensor_grap[node_inputs[1]][0]
+            self.axis = node_weights[node_inputs[3]][0] if node_inputs[3] in node_weights else tensor_grap[node_inputs[3]][0]
+            self.axis = shape_axis_utils.Torch2TFAxis(self.axis)
+            self.ends = node_weights[node_inputs[2]][0] if node_inputs[2] in node_weights else tensor_grap[node_inputs[2]][0]
+            self.ends = min(self.ends, tensor_grap[node_inputs[0]].shape[self.axis])
+            if len(node_inputs) < 5:
+                self.steps = 1
+            else:
+                self.steps = node_weights[node_inputs[4]][0] if node_inputs[4] in node_weights else tensor_grap[node_inputs[4]][0]
 
     def __call__(self, inputs):
         indices = tf.keras.backend.arange(self.starts, self.ends, step=self.steps)

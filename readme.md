@@ -99,17 +99,18 @@ onnx_converter(
 
 ---
 ## 已验证的模型列表(support models)
-- UNet\FPN
-- YOLOX
-- YOLOV3
+- [UNet\FPN](https://github.com/bigmb/Unet-Segmentation-Pytorch-Nest-of-Unets)
+- [YOLOX](https://github.com/Megvii-BaseDetection/YOLOX)
+- [YOLOV3](https://github.com/ultralytics/yolov3)
 - YOLOV4
-- YOLOV5
-- MobileNetV2 SSD-Lite
-- MoveNet
-- DCGAN
-- MLP
-- AutoEncoder/VAE
-- normal CNN
+- [YOLOV5](https://github.com/ultralytics/yolov5)
+- [YOLOV6](https://github.com/meituan/YOLOv6)
+- [SSD](https://github.com/qfgaohao/pytorch-ssd)
+- [MoveNet](https://github.com/fire717/movenet.pytorch)
+- DCGAN(custom)
+- MLP(custom)
+- [AutoEncoder/VAE](https://github.com/AntixK/PyTorch-VAE)
+- normal CNN(custom)
 - Resnet(torchvision)
 - Resnext(torchvision)
 - mnasnet(torchvision)

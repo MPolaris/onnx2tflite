@@ -1,8 +1,37 @@
-import numpy as np
+from . import OPERATOR
 import tensorflow as tf
 from tensorflow import keras
-from . import OPERATOR
-from .common_layers import TFPad
+
+@OPERATOR.register_operator("ConvTranspose")
+class TFConvTranspose():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        super().__init__()
+        out_channel, in_channel = node_weights[node_inputs[1]].shape[:2]
+        dilations, group = node_attribute.get('dilations', 1), node_attribute.get('group', 1)
+        pads = node_attribute['pads'] if "pads" in node_attribute else None
+        kernel_shape, strides = node_attribute.get('kernel_shape', 1), node_attribute.get('strides', 1)
+
+        weights = node_weights[node_inputs[1]].transpose(2,3,1,0)
+        bias = node_weights[node_inputs[2]] if len(node_inputs) == 3 else None
+        self.conv = keras.layers.Conv2DTranspose(out_channel, kernel_shape, strides, "VALID", use_bias=False if bias is None else True,
+                                                    kernel_initializer=keras.initializers.Constant(weights),
+                                                    bias_initializer='zeros' if bias is None else keras.initializers.Constant(bias),
+                                                    dilation_rate=dilations)
+
+        self.pad =None
+        if pads is not None and max(pads) != 0:
+            padding = None
+            if len(pads) == 2 and (pads[0] > 0 or pads[1] > 0):
+                padding = (pads[0], pads[1])
+            elif len(pads) == 4 and (pads[0] > 0 or pads[1] > 0 or pads[2] > 0 or pads[3] > 0):
+                padding = ((pads[0], pads[2]), (pads[1], pads[3]))
+            self.pad = keras.layers.ZeroPadding2D(padding=padding)
+
+    def __call__(self, inputs):
+        if self.pad:
+            inputs = self.pad(inputs)
+        return self.conv(inputs)
+
 
 @OPERATOR.register_operator("Conv")
 class Convlution():
