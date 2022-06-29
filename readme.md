@@ -24,14 +24,15 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 --im
 python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 ```
 ---
-## TODO
-- [ ] support Transofomer, VIT\Swin Trasnformer etc...
-- [ ] support cutoff onnx model and specify output layer
-- [ ] add unit test and optimize [comfirm_acc.py](./test/comfirm_acc.py)
-- [ ] add simple code comments.
+## Features
+- High consistency. Compare to ONNX outputs, average error less than 1e-5 per elements.
+- More Faster. Output tensorflow-lite model 30% faster than [onnx_tf](https://github.com/onnx/onnx-tensorflow/blob/main/onnx_tf/common/attr_converter.py).
+- Auto convert pytorch format(NCWH) to tensorflow format(NWHC).
+- Support output quantitative model, include fp16 quantization and uint8 quantization.
+- In my opinion, this project is code friendly. I've been trying to keep the code structure simple and clear.
 ---
-
-## 注意(Caution)
+## Cautions
+- friendly to 2D vision CNN, and not support 3D CNN, bad support for math operation.
 - please use [comfirm_acc.py](./test/comfirm_acc.py) comfirm output is correct after convertion, because some of methods rely on practice.
 - comfirm_acc.py only support tflite, and tflite should not be any quantification.
 ---
@@ -96,31 +97,54 @@ onnx_converter(
     image_root = "./dataset/train" # give image folder of train
 )
 ```
-
 ---
-## 已验证的模型列表(support models)
-- [UNet\FPN](https://github.com/bigmb/Unet-Segmentation-Pytorch-Nest-of-Unets)
+## Validated models
+- [SSD](https://github.com/qfgaohao/pytorch-ssd)
+- [HRNet](HRNet-Facial-Landmark-Detection)
 - [YOLOX](https://github.com/Megvii-BaseDetection/YOLOX)
 - [YOLOV3](https://github.com/ultralytics/yolov3)
-- YOLOV4
+- [YOLOV4](https://github.com/Tianxiaomo/pytorch-YOLOv4)
 - [YOLOV5](https://github.com/ultralytics/yolov5)
 - [YOLOV6](https://github.com/meituan/YOLOv6)
-- [SSD](https://github.com/qfgaohao/pytorch-ssd)
 - [MoveNet](https://github.com/fire717/movenet.pytorch)
-- DCGAN(custom)
+- [UNet\FPN](https://github.com/bigmb/Unet-Segmentation-Pytorch-Nest-of-Unets)
 - MLP(custom)
+- DCGAN(custom)
 - [AutoEncoder/VAE](https://github.com/AntixK/PyTorch-VAE)
-- normal CNN(custom)
-- Resnet(torchvision)
-- Resnext(torchvision)
-- mnasnet(torchvision)
-- squeezenet(torchvision)
-- Densenet(torchvision)
-- shufflenet(torchvision)
-- Mobilenet(torchvision)
-- Inceptionnet(torchvision)
-- Alexnet(torchvision)
-- VGG(torchvision)
-- DeeplabV3(torchvision)
+- all torchvision classification models
+- some segmation models in torchvision
+- 2D CNN without special operators(custom)
+---
+## Add operator by yourself
+When you counter unspport operator, you can choose add it by yourself or make a issuse.<br/>
+It's very simple to implement a new operator parser by following these steps below.<br/>
+Step 0: Select a corresponding layer code file in [layers folder](./layers/), such as activations_layers.py for 'HardSigmoid'.<br/>
+Step 1: Open it, and edit it:
+```python
+# all operators regist through OPERATOR register.
+# regist operator's name is onnx operator name. 
+@OPERATOR.register_operator("HardSigmoid")
+class TFHardSigmoid():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        '''
+        :param tensor_grap: dict, key is node name, value is tensorflow-keras node output tensor.
+        :param node_weights: dict, key is node name, value is static data, such as weight/bias/constant, weight should be transfom by TorchWeights2TF at most time.
+        :param node_inputs: List[str], stored node input names, indicates which nodes the input comes from, tensor_grap and node_weights are possible.
+        :param node_attribute: dict, key is attribute name, such as 'axis' or 'perm'. value type is indeterminate, such as List[int] or int or float. notice that type of 'axis' value should be adjusted form NCHW to NHWC by Torch2TFAxis or TorchShape2TF.
+        '''
+        super().__init__()
+        self.alpha = node_attribute.get("alpha", 0.2)
+        self.beta = node_attribute.get("beta", 0.5)
 
+    def __call__(self, inputs):
+        return tf.clip_by_value(self.alpha*inputs+self.beta, 0, 1)
+```
+Step 2: Make it work without error.<br/>
+Step 3: Convert model to tflite without any quantification.<br/>
+Step 4: Run [comfirm_acc.py](./test/comfirm_acc.py), ensure outputs consistency.
+## TODO
+- [ ] support Transofomer, VIT\Swin Trasnformer etc...
+- [ ] support cutoff onnx model and specify output layer
+- [ ] add unit test and optimize [comfirm_acc.py](./test/comfirm_acc.py)
+- [ ] add simple code comments.
 ---
