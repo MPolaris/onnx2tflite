@@ -25,16 +25,16 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 ```
 ---
 ## Features
-- High consistency. Compare to ONNX outputs, average error less than 1e-5 per elements.
+- High Consistency. Compare to ONNX outputs, average error less than 1e-5 per elements.
 - More Faster. Output tensorflow-lite model 30% faster than [onnx_tf](https://github.com/onnx/onnx-tensorflow/blob/main/onnx_tf/common/attr_converter.py).
-- Auto convert pytorch format(NCWH) to tensorflow format(NWHC).
-- Support output quantitative model, include fp16 quantization and uint8 quantization.
-- In my opinion, this project is code friendly. I've been trying to keep the code structure simple and clear.
+- Auto Channel Align. Auto convert pytorch format(NCWH) to tensorflow format(NWHC).
+- Deployment Support. Support output quantitative model, include fp16 quantization and uint8 quantization.
+- Code Friendly. I've been trying to keep the code structure simple and clear.
 ---
 ## Cautions
-- friendly to 2D vision CNN, and not support 3D CNN, bad support for math operation.
-- please use [comfirm_acc.py](./test/comfirm_acc.py) comfirm output is correct after convertion, because some of methods rely on practice.
-- comfirm_acc.py only support tflite, and tflite should not be any quantification.
+- Friendly to 2D vision CNN, and not support 3D CNN, bad support for math operation(such as channel change).
+- Please use [comfirm_acc.py](./test/comfirm_acc.py) comfirm output is correct after convertion, because some of methods rely on practice.
+- [comfirm_acc.py](./test/comfirm_acc.py) only support tflite, and tflite should not be any quantification.
 ---
 
 ## Pytorch -> ONNX -> Tensorflow-Keras -> Tensorflow-Lite
@@ -56,7 +56,7 @@ onnx_converter(
     target_formats = ['tflite'], # or ['keras'], ['keras', 'tflite']
     weight_quant = False,
     int8_model = False,
-    int8_mean = None
+    int8_mean = None,
     int8_std = None,
     image_root = None
 )
@@ -106,6 +106,7 @@ onnx_converter(
 - [YOLOV4](https://github.com/Tianxiaomo/pytorch-YOLOv4)
 - [YOLOV5](https://github.com/ultralytics/yolov5)
 - [YOLOV6](https://github.com/meituan/YOLOv6)
+- [YOLOV7](https://github.com/WongKinYiu/yolov7)
 - [MoveNet](https://github.com/fire717/movenet.pytorch)
 - [UNet\FPN](https://github.com/bigmb/Unet-Segmentation-Pytorch-Nest-of-Unets)
 - MLP(custom)
@@ -146,5 +147,4 @@ Step 4: Run [comfirm_acc.py](./test/comfirm_acc.py), ensure outputs consistency.
 - [ ] support Transofomer, VIT\Swin Trasnformer etc...
 - [ ] support cutoff onnx model and specify output layer
 - [ ] add unit test and optimize [comfirm_acc.py](./test/comfirm_acc.py)
-- [ ] add simple code comments.
 ---

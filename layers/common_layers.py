@@ -178,7 +178,7 @@ class TFScatterND():
 
     def __call__(self, inputs):
         inputs = tf.transpose(inputs, perm=self.trans_in)
-        inputs = tf.compat.v1.scatter_nd_update(inputs, self.indices, self.updates)
+        inputs = tf.tensor_scatter_nd_update(inputs, self.indices, self.updates)
         inputs = tf.transpose(inputs, perm=self.trans_out)
         return inputs
 
