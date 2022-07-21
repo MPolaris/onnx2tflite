@@ -231,3 +231,55 @@ class TFGemm():
     def __call__(self, inputs):
         return self.dense(inputs)
 
+@OPERATOR.register_operator("Identity")
+class TFIdentity():
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def __call__(self, inputs):
+        return inputs
+
+@OPERATOR.register_operator("Cast")
+class TFIdentity():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.cast_to = int(node_attribute.get("to", 1))
+        assert self.cast_to > 0 and self.cast_to < 12, f"Unknown cast type [{self.cast_to}]"
+        self.np_cast_map = {
+                1: np.float32,
+                2: np.uint8,
+                3: np.int8,
+                5: np.int16,
+                6: np.int32,
+                7: np.int64,
+                9: np.bool,
+                10: np.float16,
+                11: np.double,
+            }
+        self.tf_cast_map = {
+                1: tf.float32,
+                2: tf.uint8,
+                3: tf.int8,
+                5: tf.int16,
+                6: tf.int32,
+                7: tf.int64,
+                9: tf.bool,
+                10: tf.float16,
+                11: tf.double,
+            }
+
+    def __call__(self, inputs):
+        np_cast_op = self.np_cast_map[self.cast_to]
+        if isinstance(inputs, list):
+            for i in range(len(inputs)):
+                if isinstance(inputs[i], np.ndarray) or isinstance(inputs[i], np.generic):
+                    inputs[i] = np_cast_op(inputs[i])
+                else:
+                    inputs[i] = tf.cast(input[i], dtype=self.tf_cast_map[self.cast_to])
+        else:
+            if isinstance(inputs, np.ndarray) or isinstance(inputs, np.generic):
+                inputs[i] = np_cast_op(inputs)
+            else:
+                inputs[i] = tf.cast(inputs, dtype=self.tf_cast_map[self.cast_to])
+
+        return inputs
