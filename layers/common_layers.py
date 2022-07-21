@@ -240,7 +240,7 @@ class TFIdentity():
         return inputs
 
 @OPERATOR.register_operator("Cast")
-class TFIdentity():
+class TFCast():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self.cast_to = int(node_attribute.get("to", 1))
