@@ -179,7 +179,7 @@ class TFReduceMin():
 class TFArgMax():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axis'])
+        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get('axis', 0))
         self.keepdims = node_attribute.get("keepdims", 1) == 1
 
     def __call__(self, inputs, *args, **kwargs):
@@ -192,7 +192,7 @@ class TFArgMax():
 class TFArgMin():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axis'])
+        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get('axis', 0))
         self.keepdims = node_attribute.get("keepdims", 1) == 1
 
     def __call__(self, inputs, *args, **kwargs):

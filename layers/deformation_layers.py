@@ -67,7 +67,7 @@ class TFSlice():
 class TFGather():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axis'])
+        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get('axis', 0))
         self.indices = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else node_weights[node_inputs[1]]
 
     def __call__(self, inputs):
@@ -131,7 +131,7 @@ class TFSplit():
             start += int(node_attribute['split'][i])
         end = start + node_attribute['split'][index]
         self.indices = tf.keras.backend.arange(start, end, 1)
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get("axis", 1))
+        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get("axis", 0))
 
     def __call__(self, inputs):
         return tf.gather(inputs, indices=self.indices, axis=self.axis)
