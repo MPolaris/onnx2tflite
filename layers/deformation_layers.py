@@ -1,7 +1,5 @@
-import numpy as np
-import tensorflow as tf
 import logging
-from tensorflow import keras
+import tensorflow as tf
 
 from . import OPERATOR
 from . import shape_axis_utils
@@ -143,8 +141,9 @@ class TFExpand():
         self.shape = shape_axis_utils.TorchShape2TF(node_weights[node_inputs[1]])
 
     def __call__(self, inputs):
-        inputs = tf.repeat(inputs, repeats=int(self.shape[1]//inputs.shape[1]), axis=1)
-        inputs = tf.repeat(inputs, repeats=int(self.shape[2]//inputs.shape[2]), axis=2)
+        for i in range(len(self.shape)):
+            if int(self.shape[i]//inputs.shape[i]) > 1:
+                inputs = tf.repeat(inputs, repeats=int(self.shape[i]//inputs.shape[i]), axis=i)
         return inputs
 
 @OPERATOR.register_operator("Unsqueeze")
