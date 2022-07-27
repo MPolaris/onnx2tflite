@@ -66,13 +66,21 @@ class TFClip():
     def __call__(self, inputs):
         return tf.clip_by_value(inputs, self.min, self.max)
 
+@OPERATOR.register_operator("TFGlobalMaxPool")
+class TFGlobalMaxPool():
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return tf.reduce_max(inputs, axis=[i for i in range(1, len(inputs.shape)-1)], keepdims=True)
+
 @OPERATOR.register_operator("GlobalAveragePool")
 class TFGlobalAveragePool():
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
     def __call__(self, inputs):
-        return tf.reduce_mean(inputs, axis=[1, 2], keepdims=True)
+        return tf.reduce_mean(inputs, axis=[i for i in range(1, len(inputs.shape)-1)], keepdims=True)
 
 @OPERATOR.register_operator("AveragePool")
 class TFAveragePool():
@@ -166,7 +174,6 @@ class TFConstant():
 class TFScatterND():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        # TODO error
         self.indices = node_weights[node_inputs[1]]
         shape_len = len(tensor_grap[node_inputs[0]].shape)
         self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
