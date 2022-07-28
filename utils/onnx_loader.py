@@ -1,6 +1,5 @@
 import os
 import onnx
-import numpy as np
 import logging
 
 LOG = logging.getLogger("onnx_loader running:")
@@ -23,7 +22,11 @@ def load_onnx_modelproto(onnx_model_path:str, need_simplify:bool=True):
                 dynamic_input = True
                 break
     if need_simplify:
-        model_proto, success = simplify(model_proto, check_n=2, dynamic_input_shape=dynamic_input)
+        success = False
+        try:
+            model_proto, success = simplify(model_proto, check_n=2, dynamic_input_shape=dynamic_input)
+        except:
+            success = False
         if not success:
             LOG.warning(f"模型优化失败, 从{onnx_model_path}加载")
             model_proto = onnx.load(onnx_model_path)
