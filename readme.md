@@ -146,5 +146,7 @@ Step 4: Run [comfirm_acc.py](./test/comfirm_acc.py), ensure outputs consistency.
 ## TODO
 - [ ] support Transofomer, VIT\Swin Trasnformer etc...
 - [ ] support cutoff onnx model and specify output layer
-- [ ] add unit test and optimize [comfirm_acc.py](./test/comfirm_acc.py)
+- [ ] optimize [comfirm_acc.py](./test/comfirm_acc.py)
 ---
+# License
+This software is covered by Apache-2.0 license.
