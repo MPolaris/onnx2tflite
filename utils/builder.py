@@ -64,6 +64,8 @@ def keras_builder(onnx_model):
     tf_tensor, input_shape = {}, []
     for inp in model_graph.input:
         input_shape = [x.dim_value for x in inp.type.tensor_type.shape.dim]
+        if input_shape == []:
+            continue
         batch_size = 1 if input_shape[0] <= 0 else input_shape[0]
         input_shape = input_shape[2:] + input_shape[1:2]
         tf_tensor[inp.name] = keras.Input(shape=input_shape, batch_size=batch_size)
