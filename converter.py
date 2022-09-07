@@ -5,15 +5,17 @@ from utils import load_onnx_modelproto, keras_builder, tflite_builder
 
 LOG = logging.getLogger("converter running:")
 
-def onnx_converter(onnx_model_path:str, need_simplify:bool=True, output_path:str=None, target_formats:list = ['keras', 'tflite'],
-                weight_quant:bool=False, int8_model:bool=False, image_root:str=None,
-                int8_mean:list or float = [0.485, 0.456, 0.406], int8_std:list or float = [0.229, 0.224, 0.225]):
+def onnx_converter(onnx_model_path:str,  output_path:str=None, 
+                    input_node_names:list=None, output_node_names:list=None,
+                    need_simplify:bool=True, target_formats:list = ['keras', 'tflite'],
+                    weight_quant:bool=False, int8_model:bool=False, image_root:str=None,
+                    int8_mean:list or float = [0.485, 0.456, 0.406], int8_std:list or float = [0.229, 0.224, 0.225]):
     if not isinstance(target_formats, list) and  'keras' not in target_formats and 'tflite' not in target_formats:
         raise KeyError("'keras' or 'tflite' should in list")
     
     model_proto = load_onnx_modelproto(onnx_model_path, need_simplify)
 
-    keras_model = keras_builder(model_proto)
+    keras_model = keras_builder(model_proto, input_node_names, output_node_names)
 
     if 'tflite' in target_formats:
         tflite_model = tflite_builder(keras_model, weight_quant, int8_model, image_root, int8_mean, int8_std)
@@ -36,6 +38,8 @@ def parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', type=str, default='./models/mobilenetv3.onnx', help='onnx model path')
     parser.add_argument('--outpath', type=str, default=None, help='tflite model save path')
+    parser.add_argument('--input-node-names', nargs="+", default=None, help='which inputs is you want, support middle layers, None will using onnx orignal inputs')
+    parser.add_argument('--output-node-names', nargs="+", default=None, help='which outputs is you want, support middle layers, None will using onnx orignal outputs')
     parser.add_argument('--simplify', default=True, action='store_true', help='onnx model need simplify model')
     parser.add_argument('--weigthquant', default=False, action='store_true', help='tflite weigth int8 quant')
     parser.add_argument('--int8', default=False, action='store_true', help='tflite weigth int8 quant, include input output')
@@ -51,6 +55,8 @@ def run():
     onnx_converter(
         onnx_model_path = opt.weights,
         need_simplify = opt.simplify,
+        input_node_names = opt.input_node_names,
+        output_node_names = opt.output_node_names,
         output_path = opt.outpath,
         target_formats = opt.formats,
         weight_quant=opt.weigthquant,

@@ -56,11 +56,12 @@ def decode_node_attribute(node)->dict:
             op_attr[x.name] = x.ints
     return op_attr
     
-def keras_builder(onnx_model):
+def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=None):
     model_graph = onnx_model.graph
     onnx_weights = dict()
     for initializer in model_graph.initializer:
         onnx_weights[initializer.name] = numpy_helper.to_array(initializer)
+
     tf_tensor, input_shape = {}, []
     for inp in model_graph.input:
         input_shape = [x.dim_value for x in inp.type.tensor_type.shape.dim]
@@ -69,14 +70,15 @@ def keras_builder(onnx_model):
         batch_size = 1 if input_shape[0] <= 0 else input_shape[0]
         input_shape = input_shape[2:] + input_shape[1:2]
         tf_tensor[inp.name] = keras.Input(shape=input_shape, batch_size=batch_size)
-    
+
+    input_node_names, outputs_node_names = [], []
     for node in model_graph.node:
-        op_name, node_inputs, node_outputs = node.op_type, node.input, node.output
+        op_name, node_inputs, node_outputs, node_name = node.op_type, node.input, node.output, node.name
         op_attr = decode_node_attribute(node)
         
         tf_operator = OPERATOR.get(op_name)
         if tf_operator is None:
-            raise KeyError(f"{op_name} not yet implemented")
+            raise KeyError(f"{op_name} not implemented yet")
         
         _inputs = None 
         if len(node_inputs) > 0:
@@ -85,7 +87,26 @@ def keras_builder(onnx_model):
         for index in range(len(node_outputs)):
             tf_tensor[node_outputs[index]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, index=index)(_inputs)
 
-    keras_model = keras.Model(inputs=[tf_tensor[x.name] for x in model_graph.input], outputs=[tf_tensor[x.name] for x in model_graph.output])
+        if new_input_nodes is not None and node_name in new_input_nodes:
+            input_node_names.append(node_outputs[0])
+        # TODO for nodes with multiply outputs.
+        if new_output_nodes is not None and node_name in new_output_nodes:
+            outputs_node_names.append(node_outputs[0])
+        if new_output_nodes is not None and len(outputs_node_names) == len(new_output_nodes):
+            break
+
+    input_nodes = []
+    if new_input_nodes is None:
+        input_nodes = [tf_tensor[x.name] for x in model_graph.input]
+    else:
+        input_nodes = [tf_tensor[x] for x in input_node_names]
+    outputs_nodes = []
+    if new_output_nodes is None:
+        outputs_nodes = [tf_tensor[x.name] for x in model_graph.output]
+    else:
+        outputs_nodes = [tf_tensor[x] for x in outputs_node_names]
+
+    keras_model = keras.Model(inputs=input_nodes, outputs=outputs_nodes)
     keras_model.trainable = False
     keras_model.summary()
 

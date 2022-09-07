@@ -14,6 +14,9 @@ python converter.py --weights "./your_model.onnx" --outpath "./save_path" --form
 # save keras and tflite model
 python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" "keras"
 
+# cutoff model, redefine inputs and outputs, support middle layers
+python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" --input-node-names "layer_name" --output-node-names "layer_name1" "layer_name2"
+
 # quantitative model weight, only weight
 python converter.py --weights "./your_model.onnx" --formats "tflite" --weigthquant
 
@@ -145,7 +148,7 @@ Step 3: Convert model to tflite without any quantification.<br/>
 Step 4: Run [comfirm_acc.py](./test/comfirm_acc.py), ensure outputs consistency.
 ## TODO
 - [ ] support Transofomer, VIT\Swin Trasnformer etc...
-- [ ] support cutoff onnx model and specify output layer
+- [x] support cutoff onnx model and specify output layer
 - [ ] optimize [comfirm_acc.py](./test/comfirm_acc.py)
 ---
 # License
