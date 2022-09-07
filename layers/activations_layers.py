@@ -22,6 +22,22 @@ class TFHardSigmoid():
     def __call__(self, inputs):
         return tf.clip_by_value(self.alpha*inputs+self.beta, 0, 1)
 
+@OPERATOR.register_operator("HardSwish")
+class TFHardSwishd():
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return inputs*tf.clip_by_value(inputs/6+0.5, 0, 1)
+
+@OPERATOR.register_operator("Mish")
+class TFMish():
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return inputs*tf.tanh(tf.math.log(tf.math.exp(inputs)+1))
+
 @OPERATOR.register_operator("Sigmoid")
 class TFSigmoid():
     def __init__(self, *args, **kwargs) -> None:
@@ -62,6 +78,14 @@ class TFSin():
     def __call__(self, inputs):
         return tf.sin(inputs)
 
+@OPERATOR.register_operator("Sinh")
+class TFSinh():
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return tf.sinh(inputs)
+
 @OPERATOR.register_operator("Cos")
 class TFCos():
     def __init__(self, *args, **kwargs) -> None:
@@ -70,13 +94,29 @@ class TFCos():
     def __call__(self, inputs):
         return tf.cos(inputs)
 
+@OPERATOR.register_operator("Cosh")
+class TFCosh():
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return tf.cosh(inputs)
+
+@OPERATOR.register_operator("Tan")
+class TFTan():
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return tf.tan(inputs)
+
 @OPERATOR.register_operator("Tanh")
 class TFTanh():
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
     def __call__(self, inputs):
-        return keras.activations.tanh(inputs)
+        return tf.tanh(inputs)
 
 @OPERATOR.register_operator("Softmax")
 class TFSoftmax():
