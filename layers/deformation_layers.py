@@ -23,7 +23,7 @@ class TFTranspose():
             self.perm_list = shape_axis_utils.TorchShape2TF(self.perm_list)
         else:
             self.perm_list = [i for i in node_attribute['perm']]
-            LOG.warning("Transpose 操作将会回到NCHW形式进行")
+            LOG.info("Transpose will process tensor after change back to NCHW format.")
             shape_len = len(tensor_grap[node_inputs[0]].shape)
             self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
             self.trans_out = [0] + [n for n in range(2, len(self.perm_list))] + [1]
@@ -88,7 +88,7 @@ class TFReshape():
         super().__init__()
         self.out_shape = node_weights[node_inputs[1]]
         self.trans_in, self.trans_out = None, None
-        LOG.warning("Reshape 操作将会回到NCHW形式进行")
+        LOG.info("Reshape will process tensor after change back to NCHW format.")
         shape_len = len(tensor_grap[node_inputs[0]].shape)
         self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
         self.trans_out = [0] + [n for n in range(2, len(self.out_shape))] + [1]
