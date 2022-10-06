@@ -1,19 +1,14 @@
 import os
 import onnx
 import logging
+from onnxsim import simplify
 
 LOG = logging.getLogger("onnx_loader running:")
-try:
-    from onnxsim import simplify
-except:
-    LOG.warning("引入onnxsim.simplify失败")
-    def lambda_func(x, *arg, **args):
-        return x, False
-    simplify = lambda_func
 
 def load_onnx_modelproto(onnx_model_path:str, need_simplify:bool=True):
     if not os.path.exists(onnx_model_path):
-        return None
+        LOG.error(f"{onnx_model_path} is not exists.")
+        raise FileExistsError(f"{onnx_model_path} is not exists.")
     model_proto = onnx.load(onnx_model_path)
     dynamic_input = False
     for inp in model_proto.graph.input:
@@ -28,6 +23,6 @@ def load_onnx_modelproto(onnx_model_path:str, need_simplify:bool=True):
         except:
             success = False
         if not success:
-            LOG.warning(f"模型优化失败, 从{onnx_model_path}加载")
+            LOG.warning(f"onnxsim is failed, maybe make convert fails.")
             model_proto = onnx.load(onnx_model_path)
     return model_proto
