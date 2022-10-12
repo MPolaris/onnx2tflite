@@ -6,7 +6,7 @@ from tensorflow import keras
 from onnx import numpy_helper
 from .op_registry import OPERATOR
 
-def representative_dataset_gen(img_root, img_size, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+def representative_dataset_gen(img_root, img_size, mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375]):
     if isinstance(mean, list):
         mean = np.array(mean, dtype=np.float32)
     if isinstance(std, list):
@@ -24,11 +24,10 @@ def representative_dataset_gen(img_root, img_size, mean=[0.485, 0.456, 0.406], s
     else:
         VALID_FORMAT = ['jpg', 'png', 'jpeg']
         for i, fn in enumerate(os.listdir(img_root)):
-            if fn.split(".")[-1] not in VALID_FORMAT:
+            if fn.split(".")[-1].lower() not in VALID_FORMAT:
                 continue
             _input = cv2.imread(os.path.join(img_root, fn))
             _input = cv2.resize(_input, (img_size[1], img_size[0]))[:, :, ::-1]
-            _input = _input/255
             if mean is not None:
                 _input = (_input - mean)
             if std is not None:
@@ -115,7 +114,7 @@ def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=N
     return keras_model
 
 def tflite_builder(keras_model, weight_quant:bool=False, int8_model:bool=False, image_root:str=None,
-                    int8_mean:list or float = [0.485, 0.456, 0.406], int8_std:list or float = [0.229, 0.224, 0.225]):
+                    int8_mean:list or float = [123.675, 116.28, 103.53], int8_std:list or float = [58.395, 57.12, 57.375]):
     converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
     if weight_quant or int8_model:

@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 
 from . import OPERATOR
-from . import shape_axis_utils
+from . import dimension_utils
 
 LOG = logging.getLogger("calculations_layers :")
 
@@ -31,7 +31,7 @@ def get_number(tensor_grap, node_weights, node_inputs):
             for _ in range(len(first_operand.shape) - 2):
                 second_operand = second_operand[..., np.newaxis]
         else:
-            second_operand = shape_axis_utils.TorchWeights2TF(second_operand)
+            second_operand = dimension_utils.tensor_NCD_to_NDC_format(second_operand)
     elif (not first_operand_flg) and second_operand_flg:
         # 当second_operand为计算得出的，first_operand来自weight时
         if len(first_operand.shape) == 1:
@@ -40,7 +40,7 @@ def get_number(tensor_grap, node_weights, node_inputs):
             for _ in range(len(second_operand.shape) - 2):
                 first_operand = first_operand[..., np.newaxis]
         else:
-            first_operand = shape_axis_utils.TorchWeights2TF(first_operand)
+            first_operand = dimension_utils.tensor_NCD_to_NDC_format(first_operand)
 
     return first_operand, second_operand
 
@@ -148,7 +148,7 @@ class TFReduceMean():
         super().__init__()
         self.keep_dims = node_attribute.get("keepdims", 1) == 1
         input_shape_len = len(tensor_grap[node_inputs[0]].shape)
-        self.axes = [shape_axis_utils.Torch2TFAxis(i) if i >=0 else shape_axis_utils.Torch2TFAxis(input_shape_len + i) for i in node_attribute.get("axes", [-1])]
+        self.axes = [dimension_utils.channel_to_last_dimension(i) if i >=0 else dimension_utils.channel_to_last_dimension(input_shape_len + i) for i in node_attribute.get("axes", [-1])]
 
     def __call__(self, inputs, *args, **kwargs):
         return tf.math.reduce_mean(inputs, axis=self.axes, keepdims=self.keep_dims)
@@ -159,7 +159,7 @@ class TFReduceMax():
         super().__init__()
         self.keep_dims = node_attribute.get("keepdims", 1) == 1
         input_shape_len = len(tensor_grap[node_inputs[0]].shape)
-        self.axes = [shape_axis_utils.Torch2TFAxis(i) if i >=0 else shape_axis_utils.Torch2TFAxis(input_shape_len + i) for i in node_attribute.get("axes", [-1])]
+        self.axes = [dimension_utils.channel_to_last_dimension(i) if i >=0 else dimension_utils.channel_to_last_dimension(input_shape_len + i) for i in node_attribute.get("axes", [-1])]
 
     def __call__(self, inputs, *args, **kwargs):
         return tf.math.reduce_max(inputs, axis=self.axes, keepdims=self.keep_dims)
@@ -170,7 +170,7 @@ class TFReduceMin():
         super().__init__()
         self.keep_dims = node_attribute.get("keepdims", 1) == 1
         input_shape_len = len(tensor_grap[node_inputs[0]].shape)
-        self.axes = [shape_axis_utils.Torch2TFAxis(i) if i >=0 else input_shape_len + i for i in node_attribute.get("axes", [-1])]
+        self.axes = [dimension_utils.channel_to_last_dimension(i) if i >=0 else input_shape_len + i for i in node_attribute.get("axes", [-1])]
 
     def __call__(self, inputs, *args, **kwargs):
         return tf.math.reduce_min(inputs, axis=self.axes, keepdims=self.keep_dims)
@@ -179,7 +179,7 @@ class TFReduceMin():
 class TFArgMax():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get('axis', 0))
+        self.axis = dimension_utils.channel_to_last_dimension(node_attribute.get('axis', 0))
         self.keepdims = node_attribute.get("keepdims", 1) == 1
 
     def __call__(self, inputs, *args, **kwargs):
@@ -192,7 +192,7 @@ class TFArgMax():
 class TFArgMin():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get('axis', 0))
+        self.axis = dimension_utils.channel_to_last_dimension(node_attribute.get('axis', 0))
         self.keepdims = node_attribute.get("keepdims", 1) == 1
 
     def __call__(self, inputs, *args, **kwargs):

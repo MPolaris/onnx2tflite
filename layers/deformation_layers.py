@@ -2,7 +2,7 @@ import logging
 import tensorflow as tf
 
 from . import OPERATOR
-from . import shape_axis_utils
+from . import dimension_utils
 
 LOG = logging.getLogger("deformation_layers :")
 
@@ -16,11 +16,11 @@ class TFTranspose():
         elif len(node_attribute['perm']) > 4:
             self.perm_list = []
             for axis in node_attribute['perm']:
-                new_axis = shape_axis_utils.Torch2TFAxis(axis)
+                new_axis = dimension_utils.channel_to_last_dimension(axis)
                 if new_axis == -1:
                     new_axis = max(node_attribute['perm'])
                 self.perm_list.append(new_axis)
-            self.perm_list = shape_axis_utils.TorchShape2TF(self.perm_list)
+            self.perm_list = dimension_utils.shape_NCD_to_NDC_format(self.perm_list)
         else:
             self.perm_list = [i for i in node_attribute['perm']]
             LOG.info("Transpose will process tensor after change back to NCHW format.")
@@ -44,12 +44,12 @@ class TFSlice():
         if len(node_inputs) == 1:
             self.starts = node_attribute['starts'][0]
             self.ends = node_attribute['ends'][0]
-            self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axes'][0])
+            self.axis = dimension_utils.channel_to_last_dimension(node_attribute['axes'][0])
             self.steps = 1
         else:
             self.starts = node_weights[node_inputs[1]][0] if node_inputs[1] in node_weights else tensor_grap[node_inputs[1]][0]
             self.axis = node_weights[node_inputs[3]][0] if node_inputs[3] in node_weights else tensor_grap[node_inputs[3]][0]
-            self.axis = shape_axis_utils.Torch2TFAxis(self.axis)
+            self.axis = dimension_utils.channel_to_last_dimension(self.axis)
             self.ends = node_weights[node_inputs[2]][0] if node_inputs[2] in node_weights else tensor_grap[node_inputs[2]][0]
             self.ends = min(self.ends, tensor_grap[node_inputs[0]].shape[self.axis])
             if len(node_inputs) < 5:
@@ -65,7 +65,7 @@ class TFSlice():
 class TFGather():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get('axis', 0))
+        self.axis = dimension_utils.channel_to_last_dimension(node_attribute.get('axis', 0))
         self.indices = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else node_weights[node_inputs[1]]
 
     def __call__(self, inputs):
@@ -75,7 +75,7 @@ class TFGather():
 class TFConcat():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        _axis = shape_axis_utils.Torch2TFAxis(node_attribute['axis'])
+        _axis = dimension_utils.channel_to_last_dimension(node_attribute['axis'])
         _gather = [tensor_grap[x] for x in node_inputs]
         self.out = tf.concat(_gather, axis=_axis)
 
@@ -129,7 +129,7 @@ class TFSplit():
             start += int(node_attribute['split'][i])
         end = start + node_attribute['split'][index]
         self.indices = tf.keras.backend.arange(start, end, 1)
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute.get("axis", 0))
+        self.axis = dimension_utils.channel_to_last_dimension(node_attribute.get("axis", 0))
 
     def __call__(self, inputs):
         return tf.gather(inputs, indices=self.indices, axis=self.axis)
@@ -138,7 +138,7 @@ class TFSplit():
 class TFExpand():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
-        self.shape = shape_axis_utils.TorchShape2TF(node_weights[node_inputs[1]])
+        self.shape = dimension_utils.shape_NCD_to_NDC_format(node_weights[node_inputs[1]])
 
     def __call__(self, inputs):
         for i in range(len(self.shape)):
@@ -152,7 +152,7 @@ class TFExpand():
 class TFUnsqueeze():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axes'][0])
+        self.axis = dimension_utils.channel_to_last_dimension(node_attribute['axes'][0])
 
     def __call__(self, inputs):
         return tf.expand_dims(inputs, self.axis)
@@ -161,7 +161,7 @@ class TFUnsqueeze():
 class TFSqueeze():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
-        self.axis = shape_axis_utils.Torch2TFAxis(node_attribute['axes'][0])
+        self.axis = dimension_utils.channel_to_last_dimension(node_attribute['axes'][0])
 
     def __call__(self, inputs):
         return tf.squeeze(inputs, self.axis)
