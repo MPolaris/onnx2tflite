@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow import keras
 
-from .shape_axis_utils import Torch2TFAxis
+from .dimension_utils import channel_to_last_dimension
 from . import OPERATOR
 
 @OPERATOR.register_operator("Relu")
@@ -122,7 +122,7 @@ class TFTanh():
 class TFSoftmax():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
-        self.axis = Torch2TFAxis(node_attribute.get('axis', -1))
+        self.axis = channel_to_last_dimension(node_attribute.get('axis', -1))
 
     def __call__(self, inputs):
         return keras.activations.softmax(inputs, axis=self.axis)
