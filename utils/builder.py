@@ -24,7 +24,7 @@ def representative_dataset_gen(img_root, img_size, mean=[0.485, 0.456, 0.406], s
     else:
         VALID_FORMAT = ['jpg', 'png', 'jpeg']
         for i, fn in enumerate(os.listdir(img_root)):
-            if fn.split(".")[-1] not in VALID_FORMAT:
+            if fn.split(".")[-1].lower() not in VALID_FORMAT:
                 continue
             _input = cv2.imread(os.path.join(img_root, fn))
             _input = cv2.resize(_input, (img_size[1], img_size[0]))[:, :, ::-1]
