@@ -1,6 +1,9 @@
 #  ONNX->Keras and ONNX->TFLite tools
 
 ## How to use
+```cmd
+pip install -r requirements.txt
+```
 ```python
 # base
 python converter.py --weights "./your_model.onnx"
@@ -17,12 +20,12 @@ python converter.py --weights "./your_model.onnx" --outpath "./save_path" --form
 # cutoff model, redefine inputs and outputs, support middle layers
 python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" --input-node-names "layer_name" --output-node-names "layer_name1" "layer_name2"
 
-# quantitative model weight, only weight
+# quantify model weight, only weight
 python converter.py --weights "./your_model.onnx" --formats "tflite" --weigthquant
 
-# quantitative model weight, include input and output
+# quantify model weight, include input and output
 ## recommend
-python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 --imgroot "./dataset_path" --int8mean 0 0 0 --int8std 1 1 1
+python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 --imgroot "./dataset_path" --int8mean 0 0 0 --int8std 255 255 255
 ## generate random data, instead of read from image file
 python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 ```
@@ -95,8 +98,8 @@ onnx_converter(
     target_formats = ['tflite'], #or ['keras'], ['keras', 'tflite']
     weight_quant = False,
     int8_model = True, # do quantification
-    int8_mean = [0.485, 0.456, 0.406], # give mean of image preprocessing 
-    int8_std = [0.229, 0.224, 0.225], # give std of image preprocessing 
+    int8_mean = [123.675, 116.28, 103.53], # give mean of image preprocessing 
+    int8_std = [58.395, 57.12, 57.375], # give std of image preprocessing 
     image_root = "./dataset/train" # give image folder of train
 )
 ```

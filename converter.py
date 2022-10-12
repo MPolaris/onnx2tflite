@@ -9,7 +9,7 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
                     input_node_names:list=None, output_node_names:list=None,
                     need_simplify:bool=True, target_formats:list = ['keras', 'tflite'],
                     weight_quant:bool=False, int8_model:bool=False, image_root:str=None,
-                    int8_mean:list or float = [0.485, 0.456, 0.406], int8_std:list or float = [0.229, 0.224, 0.225]):
+                    int8_mean:list or float = [123.675, 116.28, 103.53], int8_std:list or float = [58.395, 57.12, 57.375]):
     if not isinstance(target_formats, list) and  'keras' not in target_formats and 'tflite' not in target_formats:
         raise KeyError("'keras' or 'tflite' should in list")
     
