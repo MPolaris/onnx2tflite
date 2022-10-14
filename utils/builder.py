@@ -1,4 +1,6 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -136,7 +138,7 @@ def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=N
     '''
     keras_model = keras.Model(inputs=input_nodes, outputs=outputs_nodes)
     keras_model.trainable = False
-    keras_model.summary()
+    # keras_model.summary()
 
     return keras_model
 
