@@ -64,6 +64,8 @@ class TFClip():
         self.max = tensor_grap[node_inputs[2]] if node_inputs[2] in tensor_grap else node_weights[node_inputs[2]]
 
     def __call__(self, inputs):
+        if float(self.min) == 0 and float(self.max) == 6:
+            return tf.nn.relu6(inputs)
         return tf.clip_by_value(inputs, self.min, self.max)
 
 @OPERATOR.register_operator("TFGlobalMaxPool")
