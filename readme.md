@@ -1,6 +1,6 @@
 #  ONNX->Keras and ONNX->TFLite tools
 ## Welcome
-If you have some good ideas, welcome to discuss or give me PRs.
+If you have some good ideas, welcome to discuss or give project PRs.
 
 ## How to use
 ```cmd
