@@ -36,11 +36,11 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='./models/mobilenetv3.onnx', help='onnx model path')
+    parser.add_argument('--weights', type=str, required=True, help='onnx model path')
     parser.add_argument('--outpath', type=str, default=None, help='tflite model save path')
     parser.add_argument('--input-node-names', nargs="+", default=None, help='which inputs is you want, support middle layers, None will using onnx orignal inputs')
     parser.add_argument('--output-node-names', nargs="+", default=None, help='which outputs is you want, support middle layers, None will using onnx orignal outputs')
-    parser.add_argument('--simplify', default=True, action='store_true', help='onnx model need simplify model')
+    parser.add_argument('--nosimplify', default=False, action='store_true', help='do not simplify model')
     parser.add_argument('--weigthquant', default=False, action='store_true', help='tflite weigth int8 quant')
     parser.add_argument('--int8', default=False, action='store_true', help='tflite weigth int8 quant, include input output')
     parser.add_argument('--imgroot', type=str, default=None, help='when int8=True, imgroot should give for calculating running_mean and running_norm')
@@ -54,7 +54,7 @@ def run():
     opt = parse_opt()
     onnx_converter(
         onnx_model_path = opt.weights,
-        need_simplify = opt.simplify,
+        need_simplify = not opt.nosimplify,
         input_node_names = opt.input_node_names,
         output_node_names = opt.output_node_names,
         output_path = opt.outpath,
