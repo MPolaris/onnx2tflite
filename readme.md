@@ -137,9 +137,9 @@ class TFHardSigmoid():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         '''
         :param tensor_grap: dict, key is node name, value is tensorflow-keras node output tensor.
-        :param node_weights: dict, key is node name, value is static data, such as weight/bias/constant, weight should be transfom by TorchWeights2TF at most time.
+        :param node_weights: dict, key is node name, value is static data, such as weight/bias/constant, weight should be transfom by dimension_utils.tensor_NCD_to_NDC_format at most time.
         :param node_inputs: List[str], stored node input names, indicates which nodes the input comes from, tensor_grap and node_weights are possible.
-        :param node_attribute: dict, key is attribute name, such as 'axis' or 'perm'. value type is indeterminate, such as List[int] or int or float. notice that type of 'axis' value should be adjusted form NCHW to NHWC by Torch2TFAxis or TorchShape2TF.
+        :param node_attribute: dict, key is attribute name, such as 'axis' or 'perm'. value type is indeterminate, such as List[int] or int or float. notice that type of 'axis' value should be adjusted form NCHW to NHWC by dimension_utils.channel_to_last_dimension or dimension_utils.shape_NCD_to_NDC_format.
         '''
         super().__init__()
         self.alpha = node_attribute.get("alpha", 0.2)
