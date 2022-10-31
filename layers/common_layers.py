@@ -248,6 +248,17 @@ class TFIdentity():
     def __call__(self, inputs):
         return inputs
 
+@OPERATOR.register_operator("Dropout")
+class TFDropout():
+    '''
+        Dropout will be ignored in deployment.
+    '''
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def __call__(self, inputs):
+        return inputs
+
 @OPERATOR.register_operator("Cast")
 class TFCast():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
