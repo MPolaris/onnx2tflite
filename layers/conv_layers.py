@@ -10,6 +10,17 @@ from tensorflow import keras
 from . import OPERATOR
 
 LOG = logging.getLogger("convolution_layers :")
+
+
+# Whether to implement grouped convolution using the native `keras.layers.Conv2D` class with groups !=1 argument.
+# This implementation is supported only with tflite version >= 2.9.
+# If set to `False`, the grouped convolution is built using regular conv per group then concatenated as a workaround
+# to support older version of tflite.
+# Using the native keras implementation results in a simplified tflite graph and supposed to run faster.
+# See https://github.com/MPolaris/onnx2tflite/issues/19 for more details.
+USE_NATIVE_GROUP_CONV = False
+
+
 @OPERATOR.register_operator("ConvTranspose")
 class TFConvTranspose():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
@@ -58,7 +69,12 @@ class Convlution():
             weights = weights.transpose(0, 1, 3, 2)
             self.conv = TFDepthwiseConv2D(kernel_shape, strides, dilations, pads, weights, bias)
         else:
-            self.conv = TFGroupConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, group, weights, bias)
+            if USE_NATIVE_GROUP_CONV:
+                self.conv = TFConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, weights, bias,
+                                   group=group)
+            else:
+                self.conv = TFGroupConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, group, weights,
+                                        bias)
     
     def __call__(self, inputs):
         return self.conv(inputs)
@@ -66,7 +82,7 @@ class Convlution():
 class TFConv():
     # 常规卷积Standard convolution
     def __init__(self, in_channel_num, out_channel_num, kernel_size=1, 
-                        strides=1, dilations=1, pads=None, weights=None, bias=None):
+                        strides=1, dilations=1, pads=None, weights=None, bias=None, group=1):
         super().__init__()
 
         if isinstance(dilations, int):
@@ -82,13 +98,13 @@ class TFConv():
                 out_channel_num, kernel_size, strides, "SAME", use_bias=False if bias is None else True,
                 kernel_initializer=keras.initializers.Constant(weights),
                 bias_initializer='zeros' if bias is None else keras.initializers.Constant(bias),
-                dilation_rate=dilations)
+                dilation_rate=dilations, groups=group)
         else:
             self.conv = keras.layers.Conv2D(
                 out_channel_num, kernel_size, strides, "VALID", use_bias=False if bias is None else True,
                 kernel_initializer=keras.initializers.Constant(weights),
                 bias_initializer='zeros' if bias is None else keras.initializers.Constant(bias),
-                dilation_rate=dilations)
+                dilation_rate=dilations, groups=group)
             if pads is not None and max(pads) != 0:
                 padding = None
                 if len(pads) == 2 and (pads[0] > 0 or pads[1] > 0):
