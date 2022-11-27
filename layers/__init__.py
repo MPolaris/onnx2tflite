@@ -1,4 +1,5 @@
-from utils import OPERATOR
+from utils.op_registry import OPERATOR
+
 from .conv_layers import *
 from .dimension_utils import *
 from .common_layers import *
