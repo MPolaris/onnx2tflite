@@ -1,16 +1,18 @@
 '''
-    Author: MPolaris && yutaka329
+    Author: MPolaris && yutaka329 && lkdci
+
     Thanks for yutaka329 with your pad tricks.
     https://github.com/MPolaris/onnx2tflite/issues/5
+
+    Thanks for lkdci with your native method of group conv
+    https://github.com/MPolaris/onnx2tflite/issues/19 
 '''
 import logging
 import tensorflow as tf
 from tensorflow import keras
-
 from . import OPERATOR
 
 LOG = logging.getLogger("convolution_layers :")
-
 
 # Whether to implement grouped convolution using the native `keras.layers.Conv2D` class with groups !=1 argument.
 # This implementation is supported only with tflite version >= 2.9.
@@ -19,7 +21,6 @@ LOG = logging.getLogger("convolution_layers :")
 # Using the native keras implementation results in a simplified tflite graph and supposed to run faster.
 # See https://github.com/MPolaris/onnx2tflite/issues/19 for more details.
 USE_NATIVE_GROUP_CONV = False
-
 
 @OPERATOR.register_operator("ConvTranspose")
 class TFConvTranspose():
@@ -50,7 +51,6 @@ class TFConvTranspose():
         inputs = self.conv(inputs)
         return inputs
 
-
 @OPERATOR.register_operator("Conv")
 class Convlution():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
@@ -62,7 +62,6 @@ class Convlution():
 
         weights = node_weights[node_inputs[1]].transpose(2,3,1,0)
         bias = node_weights[node_inputs[2]] if len(node_inputs) == 3 else None
-        
         if group == 1:
             self.conv = TFConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, weights, bias)
         elif group == out_channel:
@@ -72,6 +71,8 @@ class Convlution():
             if USE_NATIVE_GROUP_CONV:
                 self.conv = TFConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, weights, bias,
                                    group=group)
+                LOG.warning(f"Group Convolution is detected, using native method, only supported tflite version >= 2.9, \
+                                if compatibility error occurs and please make USE_NATIVE_GROUP_CONV=False!")
             else:
                 self.conv = TFGroupConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, group, weights,
                                         bias)
@@ -80,7 +81,7 @@ class Convlution():
         return self.conv(inputs)
 
 class TFConv():
-    # 常规卷积Standard convolution
+    # Standard convolution
     def __init__(self, in_channel_num, out_channel_num, kernel_size=1, 
                         strides=1, dilations=1, pads=None, weights=None, bias=None, group=1):
         super().__init__()
@@ -119,7 +120,9 @@ class TFConv():
         return self.conv(inputs)
 
 class TFGroupConv():
-    # 分组卷积Group Convolution
+    '''
+        Group Convolution, using split method to implement, not native.
+    '''
     def __init__(self, in_channel_num, out_channel_num, kernel_size=1, 
                         strides=1, dilations=1, pads=None, groups=1, weights=None, bias=None):
         super().__init__()
@@ -167,7 +170,7 @@ class TFGroupConv():
         return outs
 
 class TFDepthwiseConv2D():
-    # 深度可分离卷积Depthwise Convolution
+    # Depthwise Convolution, group = 1
     def __init__(self, kernel_size=1, strides=1, dilations=1, pads=None, weights=None, bias=None) -> None:
         super().__init__()
         if isinstance(dilations, int):

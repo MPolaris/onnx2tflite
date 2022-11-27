@@ -8,6 +8,8 @@ from tensorflow import keras
 from onnx import numpy_helper
 from .op_registry import OPERATOR
 
+from layers import conv_layers
+
 def representative_dataset_gen(img_root, img_size, mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375]):
     '''
         generate data for quantization.
@@ -61,7 +63,10 @@ def decode_node_attribute(node)->dict:
             op_attr[x.name] = x.ints
     return op_attr
     
-def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=None):
+def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=None, native_groupconv:bool=False):
+
+    conv_layers.USE_NATIVE_GROUP_CONV = native_groupconv
+    
     model_graph = onnx_model.graph
 
     '''
