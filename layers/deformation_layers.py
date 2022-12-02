@@ -75,12 +75,11 @@ class TFGather():
 class TFConcat():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        _axis = dimension_utils.channel_to_last_dimension(node_attribute['axis'])
-        _gather = [tensor_grap[x] for x in node_inputs]
-        self.out = tf.concat(_gather, axis=_axis)
+        self._axis = dimension_utils.channel_to_last_dimension(node_attribute['axis'])
+        self._gather = [tensor_grap[x] if x in tensor_grap else node_weights[x] for x in node_inputs]
 
     def __call__(self, *args, **kwargs):
-        return self.out
+        return tf.concat(self._gather, axis=self._axis)
 
 @OPERATOR.register_operator("Reshape")
 class TFReshape():
