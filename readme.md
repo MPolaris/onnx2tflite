@@ -34,7 +34,7 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 ---
 ## Features
 - High Consistency. Compare to ONNX outputs, average error less than 1e-5 per elements.
-- More Faster. Output tensorflow-lite model 30% faster than [onnx_tf](https://github.com/onnx/onnx-tensorflow/blob/main/onnx_tf/common/attr_converter.py).
+- More Faster. Output tensorflow-lite model 30% faster than [onnx_tf](https://github.com/onnx/onnx-tensorflow).
 - Auto Channel Align. Auto convert pytorch format(NCWH) to tensorflow format(NWHC).
 - Deployment Support. Support output quantitative model, include fp16 quantization and uint8 quantization.
 - Code Friendly. I've been trying to keep the code structure simple and clear.
