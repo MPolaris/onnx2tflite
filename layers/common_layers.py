@@ -195,12 +195,8 @@ class TFScatterND():
 class TFResize():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        if len(node_inputs) == 4:
-            # 从sizes取
-            _, _, nh, nw = node_weights[node_inputs[3]]
-        else:
-            # 从scales取
-            _, _, nh, nw = node_weights[node_inputs[2]]
+        _, _, nh, nw = node_weights[node_inputs[-1]]
+        if len(node_inputs) != 4:
             _, h, w, _ = tensor_grap[node_inputs[0]].shape
             nh, nw = int(h*nh), int(w*nw)
         
