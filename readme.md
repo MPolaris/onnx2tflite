@@ -155,6 +155,13 @@ Step 4: Run [comfirm_acc.py](./test/comfirm_acc.py), ensure outputs consistency.
 - [ ] support Transofomer, VIT\Swin Trasnformer etc...
 - [x] support cutoff onnx model and specify output layer
 - [ ] optimize [comfirm_acc.py](./test/comfirm_acc.py)
----
+
+## MUTTERING
+This project is very useful and easy to use for most of regular network, at lease I think.\
+Welcome friendly discuss from any user/person, also for code reference. \
+But I think you should keep basic courtesy, such as indicate code origin out. \
+I hate person who put poison into code and don't understand why the code written by some people is so complicated. \
+Some project always print some colorful information of middle process, useless and no meaningless. 
+
 # License
 This software is covered by Apache-2.0 license.
