@@ -157,9 +157,9 @@ Step 4: Run [comfirm_acc.py](./test/comfirm_acc.py), ensure outputs consistency.
 - [ ] optimize [comfirm_acc.py](./test/comfirm_acc.py)
 
 ## Emmmmmmm
+Welcome friendly discuss from any user/person, also for code reference. \
 This project is very useful and easy to use for most of regular network, at lease I think.\
-It's too disgusting for first(batch) or second(channel) axis change, always some strange situations doesn't be considered.\
-Welcome friendly discuss from any user/person, also for code reference.
+It's too disgusting for first(batch) or second(channel) axis change. There are always circumstances that have not been taken into account.
 
 # License
 This software is covered by Apache-2.0 license.
