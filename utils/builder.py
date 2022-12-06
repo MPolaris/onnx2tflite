@@ -46,23 +46,31 @@ def representative_dataset_gen(img_root, img_size, mean=[123.675, 116.28, 103.53
             if i >= 100:
                 break
 
+# copy from https://github.com/gmalivenko/onnx2keras
 def decode_node_attribute(node)->dict:
-    op_attr = dict()
-    for x in node.attribute:
-        if x.type == 1:
-            op_attr[x.name] = x.f
-        elif x.type == 2:
-            op_attr[x.name] = x.i
-        elif x.type == 3:
-            op_attr[x.name] = x.s.decode()
-        elif x.type == 4:
-            op_attr[x.name] = numpy_helper.to_array(x.t)
-            if op_attr[x.name].size == 0:
-                op_attr[x.name] = np.array([0])
-        elif x.type == 7:
-            op_attr[x.name] = x.ints
-    return op_attr
-    
+    """
+    Parse ONNX attributes to Python dictionary
+    :param args: ONNX attributes object
+    :return: Python dictionary
+    """
+    def onnx_attribute_to_dict(onnx_attr):
+        """
+        Parse ONNX attribute
+        :param onnx_attr: ONNX attribute
+        :return: Python data type
+        """
+        if onnx_attr.HasField('t'):
+            return numpy_helper.to_array(getattr(onnx_attr, 't'))
+
+        for attr_type in ['f', 'i', 's']:
+            if onnx_attr.HasField(attr_type):
+                return getattr(onnx_attr, attr_type)
+
+        for attr_type in ['floats', 'ints', 'strings']:
+            if getattr(onnx_attr, attr_type):
+                return list(getattr(onnx_attr, attr_type))
+    return {arg.name: onnx_attribute_to_dict(arg) for arg in node.attribute}
+
 def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=None, native_groupconv:bool=False):
 
     conv_layers.USE_NATIVE_GROUP_CONV = native_groupconv
