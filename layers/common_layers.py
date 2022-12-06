@@ -89,7 +89,7 @@ class TFAveragePool():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
         kernel_shape = node_attribute.get("kernel_shape", [2, 2])
-        strides = strides=node_attribute.get("strides", [1, 1])
+        strides = node_attribute.get("strides", [1, 1])
         ceil_mode = node_attribute.get("ceil_mode", 0)
         pads = node_attribute.get("pads", [0, 0, 0, 0])
 
@@ -97,10 +97,13 @@ class TFAveragePool():
         half_shape = True
         for i in range(len(inputshape)-2):
             if ceil_mode == 0:
-                half_shape = half_shape and math.floor((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
+                half_shape = half_shape and \
+                             math.floor((inputshape[1 + i] + pads[i * 2] * 2 - kernel_shape[i]) / strides[i] + 1) == \
+                             inputshape[1 + i]
             else:
-                half_shape = half_shape and math.ceil((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
-
+                half_shape = half_shape and \
+                             math.ceil((inputshape[1 + i] + pads[i * 2] * 2 - kernel_shape[i]) / strides[i] + 1) == \
+                             inputshape[1 + i]
         half_shape = half_shape and np.sum(pads) == 0
         pad_mode = "SAME" if half_shape else "VALID" 
         self.avg_pool = keras.layers.AveragePooling2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
@@ -120,7 +123,7 @@ class TFMaxPool():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
         kernel_shape = node_attribute.get("kernel_shape", [2, 2])
-        strides = strides=node_attribute.get("strides", [1, 1])
+        strides = node_attribute.get("strides", [1, 1])
         ceil_mode = node_attribute.get("ceil_mode", 0)
         pads = node_attribute.get("pads", [0, 0, 0, 0])
 
@@ -128,10 +131,13 @@ class TFMaxPool():
         half_shape = True
         for i in range(len(inputshape)-2):
             if ceil_mode == 0:
-                half_shape = half_shape and math.floor((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
+                half_shape = half_shape and \
+                             math.floor((inputshape[1 + i] + pads[i * 2] * 2 - kernel_shape[i]) / strides[i] + 1) == \
+                             inputshape[1 + i]
             else:
-                half_shape = half_shape and math.ceil((inputshape[1+i]+pads[i]-((kernel_shape[i]-1)*1+1))/strides[i]+1) * 2 == inputshape[1+i]
-
+                half_shape = half_shape and \
+                             math.ceil((inputshape[1 + i] + pads[i * 2] * 2 - kernel_shape[i]) / strides[i] + 1) == \
+                             inputshape[1 + i]
         half_shape = half_shape and np.sum(pads) == 0
         pad_mode = "SAME" if half_shape else "VALID" 
         self.max_pool = keras.layers.MaxPool2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
