@@ -90,27 +90,26 @@ class TFAveragePool():
         super().__init__()
         kernel_shape = node_attribute.get("kernel_shape", [2, 2])
         strides = node_attribute.get("strides", [1, 1])
+        dilations = node_attribute.get("dilations", [1, 1])
         ceil_mode = node_attribute.get("ceil_mode", 0)
         pads = node_attribute.get("pads", [0, 0, 0, 0])
 
-        inputshape = tensor_grap[node_inputs[0]].shape
-        half_shape = True
-        for i in range(len(inputshape)-2):
-            if ceil_mode == 0:
-                half_shape = half_shape and \
-                             math.floor((inputshape[1 + i] + pads[i * 2] * 2 - kernel_shape[i]) / strides[i] + 1) == \
-                             inputshape[1 + i]
-            else:
-                half_shape = half_shape and \
-                             math.ceil((inputshape[1 + i] + pads[i * 2] * 2 - kernel_shape[i]) / strides[i] + 1) == \
-                             inputshape[1 + i]
-        half_shape = half_shape and np.sum(pads) == 0
-        pad_mode = "SAME" if half_shape else "VALID" 
+        func = math.floor if ceil_mode == 0 else math.ceil
+
+        pad_mode = "SAME"
+        input_shape = tensor_grap[node_inputs[0]].shape
+        for i in range(len(input_shape)-2):
+            pad_shape = pads[i] + pads[i+2]
+            output_shape_raw = (input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1
+            if func(output_shape_raw) != input_shape[1+i]:
+                pad_mode = "VALID"
+                break
+        
         self.avg_pool = keras.layers.AveragePooling2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
                                                         strides=node_attribute.get("strides", [1])[0], padding=pad_mode)
         
         self.pad = None
-        if not half_shape and pads is not None and np.sum(pads) > 0:
+        if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
             self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
 
     def __call__(self, inputs):
@@ -124,29 +123,27 @@ class TFMaxPool():
         super().__init__()
         kernel_shape = node_attribute.get("kernel_shape", [2, 2])
         strides = node_attribute.get("strides", [1, 1])
+        dilations = node_attribute.get("dilations", [1, 1])
         ceil_mode = node_attribute.get("ceil_mode", 0)
         pads = node_attribute.get("pads", [0, 0, 0, 0])
 
-        inputshape = tensor_grap[node_inputs[0]].shape
-        half_shape = True
-        for i in range(len(inputshape)-2):
-            if ceil_mode == 0:
-                half_shape = half_shape and \
-                             math.floor((inputshape[1 + i] + pads[i * 2] * 2 - kernel_shape[i]) / strides[i] + 1) == \
-                             inputshape[1 + i]
-            else:
-                half_shape = half_shape and \
-                             math.ceil((inputshape[1 + i] + pads[i * 2] * 2 - kernel_shape[i]) / strides[i] + 1) == \
-                             inputshape[1 + i]
-        half_shape = half_shape and np.sum(pads) == 0
-        pad_mode = "SAME" if half_shape else "VALID" 
+        func = math.floor if ceil_mode == 0 else math.ceil
+
+        pad_mode = "SAME"
+        input_shape = tensor_grap[node_inputs[0]].shape
+        for i in range(len(input_shape)-2):
+            pad_shape = pads[i] + pads[i+2]
+            output_shape_raw = (input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1
+            if func(output_shape_raw) != input_shape[1+i]:
+                pad_mode = "VALID"
+                break
+
         self.max_pool = keras.layers.MaxPool2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
                                                  strides=node_attribute.get("strides", [1])[0], padding=pad_mode)
         
         self.pad = None
-        if not half_shape and pads is not None and np.sum(pads) > 0:
+        if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
             self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
-            
 
     def __call__(self, inputs):
         if self.pad:
