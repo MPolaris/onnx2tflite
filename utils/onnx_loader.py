@@ -17,8 +17,10 @@ def clean_model_input(model_proto):
         if initializer.name in name_to_input:
             inputs.remove(name_to_input[initializer.name])
             names.append(initializer.name)
-    LOG.warning(f"[{len(names)}] redundant input nodes are removed.\n \
-        nodes name : {','.join(names)}")
+    
+    if len(names) > 0:
+        LOG.warning(f"[{len(names)}] redundant input nodes are removed.\n \
+            nodes name : {','.join(names)}")
     
 
 def load_onnx_modelproto(onnx_model_path:str, need_simplify:bool=True):
