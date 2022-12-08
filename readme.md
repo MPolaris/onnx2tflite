@@ -125,7 +125,7 @@ onnx_converter(
 - 2D CNN without special operators(custom)
 ---
 ## Add operator by yourself
-When you counter unspport operator, you can choose add it by yourself or make a issuse.<br/>
+When you counter unspported operator, you can choose to add it by yourself or make an issuse.<br/>
 It's very simple to implement a new operator parser by following these steps below.<br/>
 Step 0: Select a corresponding layer code file in [layers folder](./layers/), such as activations_layers.py for 'HardSigmoid'.<br/>
 Step 1: Open it, and edit it:
@@ -158,7 +158,7 @@ Step 4: Run [comfirm_acc.py](./test/comfirm_acc.py), ensure outputs consistency.
 
 ## Emmmmmmm
 Welcome friendly discuss from any user/person, also for code reference. \
-This project is very useful and easy to use for most of regular network, at lease I think.\
+This project is very useful and easy to use for most of regular network, at least I think.\
 It's too disgusting for first(batch) or second(channel) axis change. There are always circumstances that have not been taken into account.
 
 # License
