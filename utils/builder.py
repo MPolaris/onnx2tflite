@@ -62,9 +62,13 @@ def decode_node_attribute(node)->dict:
         if onnx_attr.HasField('t'):
             return numpy_helper.to_array(getattr(onnx_attr, 't'))
 
-        for attr_type in ['f', 'i', 's']:
+        for attr_type in ['f', 'i']:
             if onnx_attr.HasField(attr_type):
                 return getattr(onnx_attr, attr_type)
+
+        # s need to be decode, bytes to string
+        if onnx_attr.HasField('s'):
+            return getattr(onnx_attr, 's').decode()
 
         for attr_type in ['floats', 'ints', 'strings']:
             if getattr(onnx_attr, attr_type):
