@@ -120,9 +120,13 @@ class TFTanh():
 
 @OPERATOR.register_operator("Softmax")
 class TFSoftmax():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, runtime_format, *args, **kwargs) -> None:
         super().__init__()
-        self.axis = channel_to_last_dimension(node_attribute.get('axis', -1))
+        self.axis = node_attribute.get('axis', -1)
+        if runtime_format[node_inputs[0]] != "ONNX":
+            self.axis = channel_to_last_dimension(self.axis)
+        
+        runtime_format[node_outputs[0]] = runtime_format[node_inputs[0]]
 
     def __call__(self, inputs):
         return keras.activations.softmax(inputs, axis=self.axis)

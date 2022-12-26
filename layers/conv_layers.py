@@ -11,6 +11,7 @@ import logging
 import tensorflow as tf
 from tensorflow import keras
 from . import OPERATOR
+from . import dimension_utils
 
 LOG = logging.getLogger("convolution_layers :")
 
@@ -52,8 +53,15 @@ class TFConvTranspose():
 
 @OPERATOR.register_operator("Conv")
 class Convlution():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, node_weights, node_inputs, node_attribute, node_outputs, runtime_format, *args, **kwargs) -> None:
         super().__init__()
+        self.transpose = None
+        if runtime_format.get(node_inputs[0]) == "ONNX":
+            self.transpose = dimension_utils.tensor_NCD_to_NDC_format
+
+        for no in node_outputs:
+            runtime_format[no] = "TFLITE"
+
         out_channel, in_channel = node_weights[node_inputs[1]].shape[:2]
         dilations, group = node_attribute.get('dilations', 1), node_attribute.get('group', 1)
         pads = node_attribute['pads'] if "pads" in node_attribute else None
@@ -77,6 +85,8 @@ class Convlution():
                                         bias)
     
     def __call__(self, inputs):
+        if self.transpose:
+            inputs = self.transpose(inputs)
         return self.conv(inputs)
 
 class TFConv():

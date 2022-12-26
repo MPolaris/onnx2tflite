@@ -1,3 +1,7 @@
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+
 '''
     shape and axis transform utils func.
 '''
@@ -22,6 +26,15 @@ def shape_NCD_to_NDC_format(shape:list or tuple):
     new_shape = [shape[0], *shape[2:], shape[1]]
     return tuple(new_shape)
 
+def shape_NDC_to_NCD_format(shape:list or tuple):
+    '''
+        make shape format from channel last to channel first
+    '''
+    if len(shape) <= 2:
+        return tuple(shape)
+    new_shape = [shape[0], shape[-1], *shape[1:-1]]
+    return tuple(new_shape)
+
 def tensor_NCD_to_NDC_format(tensor):
     '''
         make tensor format from channel first to channel last
@@ -29,5 +42,21 @@ def tensor_NCD_to_NDC_format(tensor):
     if(len(tensor.shape) > 2):
         shape = [i for i in range(len(tensor.shape))]
         shape = shape_NCD_to_NDC_format(shape)
-        tensor = tensor.transpose(*shape)
+        if isinstance(tensor, np.ndarray):
+            tensor = tensor.transpose(*shape)
+        else:
+            tensor = tf.transpose(tensor, shape)
+    return tensor
+
+def tensor_NDC_to_NCD_format(tensor):
+    '''
+        make tensor format from channel last to channel first
+    '''
+    if(len(tensor.shape) > 2):
+        shape = [i for i in range(len(tensor.shape))]
+        shape = shape_NDC_to_NCD_format(shape)
+        if isinstance(tensor, np.ndarray):
+            tensor = tensor.transpose(*shape)
+        else:
+            tensor = tf.transpose(tensor, shape)
     return tensor

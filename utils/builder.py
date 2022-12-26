@@ -81,12 +81,15 @@ def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=N
     
     model_graph = onnx_model.graph
 
+    runtime_format = {}
+
     '''
         init onnx model's build-in tensors
     '''
     onnx_weights = dict()
     for initializer in model_graph.initializer:
         onnx_weights[initializer.name] = numpy_helper.to_array(initializer)
+        runtime_format[initializer.name] = "ONNX"
 
     '''
         build input nodes
@@ -99,6 +102,7 @@ def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=N
         batch_size = 1 if input_shape[0] <= 0 else input_shape[0]
         input_shape = input_shape[2:] + input_shape[1:2]
         tf_tensor[inp.name] = keras.Input(shape=input_shape, batch_size=batch_size)
+        runtime_format[inp.name] = "TFLITE"
 
     '''
         build model inline node by iterate onnx nodes.
@@ -117,7 +121,11 @@ def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=N
             _inputs = tf_tensor[node_inputs[0]] if node_inputs[0] in tf_tensor else onnx_weights[node_inputs[0]]
 
         for index in range(len(node_outputs)):
-            tf_tensor[node_outputs[index]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, index=index)(_inputs)
+            runtime_format[node_outputs[index]] = runtime_format[node_inputs[0]]
+            tf_tensor[node_outputs[index]] = tf_operator(tensor_grap=tf_tensor, node_weights=onnx_weights, 
+                                                            node_inputs=node_inputs, node_attribute=op_attr, 
+                                                            node_outputs=node_outputs,
+                                                            runtime_format=runtime_format, index=index)(_inputs)
 
         '''
             reorganize input and output nodes
@@ -155,7 +163,7 @@ def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=N
     '''
     keras_model = keras.Model(inputs=input_nodes, outputs=outputs_nodes)
     keras_model.trainable = False
-    # keras_model.summary()
+    keras_model.summary()
 
     return keras_model
 
