@@ -60,8 +60,14 @@ class TFPad():
 class TFClip():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        self.min = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else node_weights[node_inputs[1]]
-        self.max = tensor_grap[node_inputs[2]] if node_inputs[2] in tensor_grap else node_weights[node_inputs[2]]
+        if "min" in node_attribute:
+            self.min = node_attribute.get("min")
+        else:
+            self.min = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else node_weights[node_inputs[1]]
+        if "max" in node_attribute:
+            self.max = node_attribute.get("max")
+        else:
+            self.max = tensor_grap[node_inputs[2]] if node_inputs[2] in tensor_grap else node_weights[node_inputs[2]]
 
     def __call__(self, inputs):
         if float(self.min) == 0 and float(self.max) == 6:
@@ -198,12 +204,15 @@ class TFScatterND():
 class TFResize():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
-        _, _, nh, nw = node_weights[node_inputs[-1]]
-        if len(node_inputs) != 4:
-            _, h, w, _ = tensor_grap[node_inputs[0]].shape
-            nh, nw = int(h*nh), int(w*nw)
-        
-        self.scale = (nh, nw)
+        if node_inputs[-1] in node_weights:
+            _, _, nh, nw = node_weights[node_inputs[-1]]
+            if len(node_inputs) != 4:
+                _, h, w, _ = tensor_grap[node_inputs[0]].shape
+                nh, nw = int(h*nh), int(w*nw)
+            self.scale = (nh, nw)
+        else:
+            raise KeyError("dynamic size is not supported for Resize in tflite, please fix scale before export onnx...")
+
         if node_attribute.get("mode", "nearest").lower() == 'nearest':
             self.method = tf.image.ResizeMethod.NEAREST_NEIGHBOR
         else:
