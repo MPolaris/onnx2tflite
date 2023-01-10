@@ -76,7 +76,7 @@ class TFConcat():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
         super().__init__()
         self._axis = dimension_utils.channel_to_last_dimension(node_attribute['axis'])
-        self._gather = [tensor_grap[x] if x in tensor_grap else node_weights[x] for x in node_inputs]
+        self._gather = [tensor_grap[x] if x in tensor_grap else dimension_utils.tensor_NCD_to_NDC_format(node_weights[x]) for x in node_inputs]
 
     def __call__(self, *args, **kwargs):
         return tf.concat(self._gather, axis=self._axis)
@@ -164,3 +164,23 @@ class TFSqueeze():
 
     def __call__(self, inputs):
         return tf.squeeze(inputs, self.axis)
+
+@OPERATOR.register_operator("DepthToSpace")
+class TFDepthToSpace():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+        super().__init__()
+        self.block_size = node_attribute.get("blocksize", 2)
+        self.mode = node_attribute.get("mode", "DCR")
+
+    def __call__(self, inputs):
+        if self.mode == "DCR":
+            return tf.nn.depth_to_space(inputs, self.block_size)
+        elif self.mode == "CRD":
+            # help want, native tensorflow is not support CRD mode, this way will generate 5 dims op.
+            b, h, w, c = inputs.shape
+            tmp = tf.reshape(inputs, [b, h, w, c//(self.block_size * self.block_size), self.block_size, self.block_size])
+            tmp = tf.transpose(tmp, perm=[0, 1, 4, 2, 5, 3])
+            tmp = tf.reshape(tmp, [b, h*self.block_size, w*self.block_size, c//(self.block_size * self.block_size)])
+            return tmp
+        else:
+            raise KeyError(f"For DepthToSpace, mode must be [DCR, CRD], not {self.mode}")
