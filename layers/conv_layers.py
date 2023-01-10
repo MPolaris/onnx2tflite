@@ -148,12 +148,12 @@ class TFGroupConv():
                 self.convs.append(keras.layers.Conv2D(
                                 out_channel_num, kernel_size, strides, 'SAME', use_bias=False if bias is None else True,
                                 dilation_rate=dilations,
-                                weights=[weights] if bias is None else [weights, bias]))
+                                weights=[weights[:, :, :, i*out_channel_num:(i+1)*out_channel_num]] if bias is None else [weights[:, :, :, i*out_channel_num:(i+1)*out_channel_num], bias[i*out_channel_num:(i+1)*out_channel_num]]))
             else:
                 self.convs.append(keras.layers.Conv2D(
                                     out_channel_num, kernel_size, strides, 'VALID', use_bias=False if bias is None else True,
                                     dilation_rate=dilations,
-                                    weights=[weights] if bias is None else [weights, bias]))
+                                    weights=[weights[:, :, :, i*out_channel_num:(i+1)*out_channel_num]] if bias is None else [weights[:, :, :, i*out_channel_num:(i+1)*out_channel_num], bias[i*out_channel_num:(i+1)*out_channel_num]]))
 
     def __call__(self, inputs):
         if self.pad is not None:
