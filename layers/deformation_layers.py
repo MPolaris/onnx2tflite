@@ -102,21 +102,32 @@ class TFReshape():
 class TFFlatten():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
-        tensor_size, tensor_shape = 1, tensor_grap[node_inputs[0]].get_shape().as_list()
-        for n in tensor_shape:
-            tensor_size = tensor_size * max(n, 1)
-        if tensor_size == max(tensor_shape):
-            self.trans = None
-        else:
-            perm_list = [0, len(tensor_shape)-1]
-            for i in range(len(tensor_shape)-2):
-                perm_list.append(i+1)
-            self.trans = TFTranspose(None, None, None, None, perm_list=perm_list)
+        num_elements = int(tensor_grap[node_inputs[0]].shape.num_elements()/tensor_grap[node_inputs[0]].shape[0])
+        input_shape = tensor_grap[node_inputs[0]].shape
+        self.flat = tf.keras.layers.Flatten()
+        '''
+            ensure memory order match, for example:
+            onnx = (B, 2, 3, 4).reshape(B, -1)
+            tflite = (B, 3, 4, 2).reshape(B, -1)
+            we can observe that:
+            onnx.shape == tflite.shape, but np.sum(onnx-tflite) != 0
+            it's cause memory order of two vars is different, we must make tflite back to onnx by transpose.
+            generally, this situation is general one, below is just special situation and most appear in cnn.
+            onnx = (B, 512, 1, 1)
+            tflite = (B, 1, 1, 512)
+            or = (B, 1, 512, 1)
+            these memory order are all same.
+        '''
+        self.perm = None
+        if num_elements != max(input_shape[1:]):
+            self.perm = [0, len(input_shape)-1]
+            for i in range(len(input_shape)-2):
+                self.perm.append(i+1)
 
     def __call__(self, inputs):
-        if self.trans:
-            inputs = self.trans(inputs)
-        return tf.reshape(inputs, shape=(1, -1))
+        if self.perm:
+            inputs = tf.transpose(inputs, perm=self.perm)
+        return self.flat(inputs)
 
 @OPERATOR.register_operator("Split")
 class TFSplit():
