@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 from utils.op_registry import OPERATOR
+from layers.dimension_utils import intfloat_to_list
 
 LOG = logging.getLogger("common_layers :")
 
@@ -94,14 +95,14 @@ class TFGlobalAveragePool():
 class TFAveragePool():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
-        kernel_shape = node_attribute.get("kernel_shape", [2, 2])
-        strides = node_attribute.get("strides", [1, 1])
-        dilations = node_attribute.get("dilations", [1, 1])
+        kernel_shape = intfloat_to_list(node_attribute.get("kernel_shape", [2, 2]), 2)
+        strides = intfloat_to_list(node_attribute.get("strides", [1, 1]), 2)
+        dilations = intfloat_to_list(node_attribute.get("dilations", [1, 1]), 2)
         ceil_mode = node_attribute.get("ceil_mode", 0)
-        pads = node_attribute.get("pads", [0, 0, 0, 0])
+        pads = intfloat_to_list(node_attribute.get("pads", [0, 0, 0, 0]), 4)
 
         func = math.floor if ceil_mode == 0 else math.ceil
-
+        
         pad_mode = "SAME"
         input_shape = tensor_grap[node_inputs[0]].shape
         for i in range(len(input_shape)-2):
@@ -111,8 +112,7 @@ class TFAveragePool():
                 pad_mode = "VALID"
                 break
         
-        self.avg_pool = keras.layers.AveragePooling2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
-                                                        strides=node_attribute.get("strides", [1])[0], padding=pad_mode)
+        self.avg_pool = keras.layers.AveragePooling2D(pool_size=kernel_shape[0], strides=strides[0], padding=pad_mode)
         
         self.pad = None
         if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
@@ -127,11 +127,11 @@ class TFAveragePool():
 class TFMaxPool():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
-        kernel_shape = node_attribute.get("kernel_shape", [2, 2])
-        strides = node_attribute.get("strides", [1, 1])
-        dilations = node_attribute.get("dilations", [1, 1])
+        kernel_shape = intfloat_to_list(node_attribute.get("kernel_shape", [2, 2]), 2)
+        strides = intfloat_to_list(node_attribute.get("strides", [1, 1]), 2)
+        dilations = intfloat_to_list(node_attribute.get("dilations", [1, 1]), 2)
         ceil_mode = node_attribute.get("ceil_mode", 0)
-        pads = node_attribute.get("pads", [0, 0, 0, 0])
+        pads = intfloat_to_list(node_attribute.get("pads", [0, 0, 0, 0]), 4)
 
         func = math.floor if ceil_mode == 0 else math.ceil
 
@@ -144,8 +144,7 @@ class TFMaxPool():
                 pad_mode = "VALID"
                 break
 
-        self.max_pool = keras.layers.MaxPool2D(pool_size=node_attribute.get("kernel_shape", [2])[0], 
-                                                 strides=node_attribute.get("strides", [1])[0], padding=pad_mode)
+        self.max_pool = keras.layers.MaxPool2D(pool_size=kernel_shape[0], strides=strides[0], padding=pad_mode)
         
         self.pad = None
         if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:

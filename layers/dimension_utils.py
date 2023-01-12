@@ -31,3 +31,9 @@ def tensor_NCD_to_NDC_format(tensor):
         shape = shape_NCD_to_NDC_format(shape)
         tensor = tensor.transpose(*shape)
     return tensor
+
+def intfloat_to_list(x:int or float, lens:int):
+    if isinstance(x, (int, float)):
+        return [x]*lens
+    else:
+        return x
