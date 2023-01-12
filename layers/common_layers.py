@@ -228,23 +228,15 @@ class TFGemm():
     '''
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
-        weights = node_weights[node_inputs[1]].T
-        bias = node_weights[node_inputs[2]] if len(node_inputs) > 2 else None
-        weights = weights
-        if bias is None:
-            self.dense = keras.layers.Dense(weights.shape[1],
-                                            input_shape=(weights.shape[0],),
-                                            activation=None,
-                                            use_bias=False,
-                                            kernel_initializer=keras.initializers.Constant(weights))
+        if len(node_inputs) > 2:
+            weights = [node_weights[node_inputs[1]].T, node_weights[node_inputs[2]]]
         else:
-            bias = bias[None, ...]
-            self.dense = keras.layers.Dense(weights.shape[1],
-                                            input_shape=(weights.shape[0],),
-                                            activation=None,
-                                            use_bias=True,
-                                            kernel_initializer=keras.initializers.Constant(weights),
-                                            bias_initializer=keras.initializers.Constant(bias))
+            weights = [node_weights[node_inputs[1]].T]
+
+        self.dense = keras.layers.Dense(weights[0].shape[1],
+                                        weights=weights,
+                                        use_bias=len(weights)==2)
+
     def __call__(self, inputs):
         return self.dense(inputs)
 
