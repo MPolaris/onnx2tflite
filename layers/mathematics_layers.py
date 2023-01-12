@@ -2,8 +2,8 @@ import logging
 import numpy as np
 import tensorflow as tf
 
-from . import OPERATOR
-from . import dimension_utils
+from utils.op_registry import OPERATOR
+from layers import dimension_utils
 
 LOG = logging.getLogger("calculations_layers :")
 

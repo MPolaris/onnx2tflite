@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from onnx import numpy_helper
-from .op_registry import OPERATOR
+from utils.op_registry import OPERATOR
 
 from layers import conv_layers
 
@@ -43,7 +43,7 @@ def representative_dataset_gen(img_root, img_size, mean=[123.675, 116.28, 103.53
 
             _input = np.expand_dims(_input, axis=0).astype(np.float32)
             yield [_input]
-            if i >= 100:
+            if i >= 30:
                 break
 
 # copy from https://github.com/gmalivenko/onnx2keras

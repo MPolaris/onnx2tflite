@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from . import OPERATOR
+from utils.op_registry import OPERATOR
 
 LOG = logging.getLogger("common_layers :")
 

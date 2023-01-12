@@ -1,8 +1,6 @@
-from utils.op_registry import OPERATOR
-
-from .conv_layers import *
-from .dimension_utils import *
-from .common_layers import *
-from .activations_layers import *
-from .mathematics_layers import *
-from .deformation_layers import *
+from layers.conv_layers import *
+from layers.dimension_utils import *
+from layers.common_layers import *
+from layers.activations_layers import *
+from layers.mathematics_layers import *
+from layers.deformation_layers import *
