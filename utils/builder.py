@@ -1,50 +1,13 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-import cv2
-import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from onnx import numpy_helper
 from utils.op_registry import OPERATOR
+from utils.dataloader import RandomLoader, ImageLoader
 
 from layers import conv_layers
-
-def representative_dataset_gen(img_root, img_size, mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375]):
-    '''
-        generate data for quantization.
-        img_quan_data = (img - mean)/std, it's important for accuracy of model.
-    '''
-    if isinstance(mean, list):
-        mean = np.array(mean, dtype=np.float32)
-    if isinstance(std, list):
-        std = np.array(std, dtype=np.float32)
-
-    if img_root is None or (not os.path.exists(img_root)):
-        for _ in range(20):
-            _input = np.random.rand(img_size[0], img_size[1], 3).astype(np.float32)
-            if mean is not None:
-                _input = (_input - mean)
-            if std is not None:
-                _input = _input/std
-            _input = np.expand_dims(_input, axis=0).astype(np.float32)
-            yield [_input]
-    else:
-        VALID_FORMAT = ['jpg', 'png', 'jpeg']
-        for i, fn in enumerate(os.listdir(img_root)):
-            if fn.split(".")[-1].lower() not in VALID_FORMAT:
-                continue
-            _input = cv2.imread(os.path.join(img_root, fn))
-            _input = cv2.resize(_input, (img_size[1], img_size[0]))[:, :, ::-1]
-            if mean is not None:
-                _input = (_input - mean)
-            if std is not None:
-                _input = _input/std
-
-            _input = np.expand_dims(_input, axis=0).astype(np.float32)
-            yield [_input]
-            if i >= 30:
-                break
 
 # copy from https://github.com/gmalivenko/onnx2keras
 def decode_node_attribute(node)->dict:
@@ -168,9 +131,11 @@ def tflite_builder(keras_model, weight_quant:bool=False, int8_model:bool=False, 
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
 
     if int8_model:
-        input_shape = (keras_model.inputs[0].shape[1], keras_model.inputs[0].shape[2])
-        converter.representative_dataset = lambda: representative_dataset_gen(image_root, input_shape, int8_mean, int8_std)
-        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        assert len(keras_model.inputs) == 1, f"help want, only support single input model."
+        shape = list(keras_model.inputs[0].shape)
+        dataset = RandomLoader(shape) if image_root is None else ImageLoader(image_root, shape, int8_mean, int8_std)
+        converter.representative_dataset = lambda: dataset
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8, tf.lite.OpsSet.SELECT_TF_OPS]
         converter.target_spec.supported_types = []
         converter.inference_input_type = tf.uint8
         converter.inference_output_type = tf.uint8
