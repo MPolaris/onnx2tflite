@@ -39,11 +39,6 @@ python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
 - Deployment Support. Support output quantitative model, include fp16 quantization and uint8 quantization.
 - Code Friendly. I've been trying to keep the code structure simple and clear.
 ---
-## Cautions
-- Friendly to 2D vision CNN, and not support 3D CNN, bad support for math operation(such as channel change).
-- Please use [comfirm_acc.py](./test/comfirm_acc.py) comfirm output is correct after convertion, because some of methods rely on practice.
-- [comfirm_acc.py](./test/comfirm_acc.py) only support tflite, and tflite should not be any quantification.
----
 
 ## Pytorch -> ONNX -> Tensorflow-Keras -> Tensorflow-Lite
 
@@ -150,11 +145,17 @@ class TFHardSigmoid():
 ```
 Step 2: Make it work without error.<br/>
 Step 3: Convert model to tflite without any quantification.<br/>
-Step 4: Run [comfirm_acc.py](./test/comfirm_acc.py), ensure outputs consistency.
 ## TODO
 - [ ] support Transofomer, VIT\Swin Trasnformer etc...
 - [x] support cutoff onnx model and specify output layer
 - [ ] optimize [comfirm_acc.py](./test/comfirm_acc.py)
+
+---
+## Limitation
+- The number of operators can not cover all models.
+- Friendly to 2D vision CNN, and not support 3D CNN.
+- Bad support for some math or channel change operators(such as Squeeze\MatMul).
+---
 
 ## Emmmmmmm
 It's amazing, TFLite doesn't support multi-input quantization, if you know how to do please give me a PR. \
