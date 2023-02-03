@@ -14,9 +14,9 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
     if not isinstance(target_formats, list) and  'keras' not in target_formats and 'tflite' not in target_formats:
         raise KeyError("'keras' or 'tflite' should in list")
     
-    model_proto = load_onnx_modelproto(onnx_model_path, need_simplify)
+    model_proto = load_onnx_modelproto(onnx_model_path, input_node_names, output_node_names, need_simplify)
 
-    keras_model = keras_builder(model_proto, input_node_names, output_node_names, native_groupconv)
+    keras_model = keras_builder(model_proto, native_groupconv)
 
     if 'tflite' in target_formats:
         tflite_model = tflite_builder(keras_model, weight_quant, int8_model, image_root, int8_mean, int8_std)
@@ -46,8 +46,8 @@ def parse_opt():
     parser.add_argument('--weigthquant', default=False, action='store_true', help='tflite weigth int8 quant')
     parser.add_argument('--int8', default=False, action='store_true', help='tflite weigth int8 quant, include input output')
     parser.add_argument('--imgroot', type=str, default=None, help='when int8=True, imgroot should give for calculating running_mean and running_norm')
-    parser.add_argument('--int8mean', type=float, nargs='+', default=[0.485, 0.456, 0.406], help='int8 image preprocesses mean, float or list')
-    parser.add_argument('--int8std', type=float, nargs='+', default=[0.229, 0.224, 0.225], help='int8 image preprocesses std, float or list')
+    parser.add_argument('--int8mean', type=float, nargs='+', default=[123.675, 116.28, 103.53], help='int8 image preprocesses mean, float or list')
+    parser.add_argument('--int8std', type=float, nargs='+', default=[58.395, 57.12, 57.375], help='int8 image preprocesses std, float or list')
     parser.add_argument('--formats', nargs='+', default=['keras', 'tflite'], help='available formats are (h5, tflite)')
     opt = parser.parse_args()
     return opt

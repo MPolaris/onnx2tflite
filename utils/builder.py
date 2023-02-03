@@ -38,7 +38,7 @@ def decode_node_attribute(node)->dict:
                 return list(getattr(onnx_attr, attr_type))
     return {arg.name: onnx_attribute_to_dict(arg) for arg in node.attribute}
 
-def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=None, native_groupconv:bool=False):
+def keras_builder(onnx_model, native_groupconv:bool=False):
 
     conv_layers.USE_NATIVE_GROUP_CONV = native_groupconv
     
@@ -81,41 +81,12 @@ def keras_builder(onnx_model, new_input_nodes:list=None, new_output_nodes:list=N
 
         for index in range(len(node_outputs)):
             tf_tensor[node_outputs[index]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, index=index)(_inputs)
-
-        '''
-            reorganize input and output nodes
-        '''
-        if new_input_nodes is not None and node_name in new_input_nodes:
-            input_node_names.append(node_outputs[0])
-        # TODO for nodes with multiply outputs.
-        if new_output_nodes is not None and node_name in new_output_nodes:
-            outputs_node_names.append(node_outputs[0])
-        if new_output_nodes is not None and len(outputs_node_names) == len(new_output_nodes):
-            break
     
-    '''
-        process input and output nodes 
-    '''
-    input_nodes = []
-    if new_input_nodes is None:
-        input_nodes = [tf_tensor[x.name] for x in model_graph.input]
-    else:
-        for node in model_graph.input:
-            if node.name in new_input_nodes:
-                input_node_names.append(node.name)
-        input_nodes = [tf_tensor[x] for x in input_node_names]
-    outputs_nodes = []
-    if new_output_nodes is None:
-        outputs_nodes = [tf_tensor[x.name] for x in model_graph.output]
-    else:
-        for node in model_graph.output:
-            if node.name in new_output_nodes:
-                outputs_node_names.append(node.name)
-        outputs_nodes = [tf_tensor[x] for x in outputs_node_names]
-
     '''
         build keras model
     '''
+    input_nodes = [tf_tensor[x.name] for x in model_graph.input]
+    outputs_nodes = [tf_tensor[x.name] for x in model_graph.output]
     keras_model = keras.Model(inputs=input_nodes, outputs=outputs_nodes)
     keras_model.trainable = False
     # keras_model.summary()

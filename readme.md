@@ -20,7 +20,7 @@ python converter.py --weights "./your_model.onnx" --outpath "./save_path" --form
 python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" "keras"
 
 # cutoff model, redefine inputs and outputs, support middle layers
-python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" --input-node-names "layer_name" --output-node-names "layer_name1" "layer_name2"
+python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" --input-node-names "layer_inputname" --output-node-names "layer_outname1" "layer_outname2"
 
 # quantify model weight, only weight
 python converter.py --weights "./your_model.onnx" --formats "tflite" --weigthquant
