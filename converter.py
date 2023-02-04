@@ -12,7 +12,7 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
                     need_simplify:bool=True, target_formats:list = ['keras', 'tflite'],
                     native_groupconv:bool=False,
                     weight_quant:bool=False, int8_model:bool=False, image_root:str=None,
-                    int8_mean:list or float = [123.675, 116.28, 103.53], int8_std:list or float = [58.395, 57.12, 57.375]):
+                    int8_mean:list or float = [123.675, 116.28, 103.53], int8_std:list or float = [58.395, 57.12, 57.375])->float:
     if not isinstance(target_formats, list) and  'keras' not in target_formats and 'tflite' not in target_formats:
         raise KeyError("'keras' or 'tflite' should in list")
     
@@ -28,6 +28,7 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
         output_path = onnx_path
     output_path = os.path.join(output_path, model_name.split('.')[0])
 
+    max_error = 1000
     if 'keras' in target_formats:
         keras_model.save(output_path + ".h5")
         LOG.info(f"keras model saved in {output_path}.h5")
@@ -46,6 +47,7 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
                 LOG.info("elements' max error is {:^.6f}, pass, tflite saved in {}".format(max_error, tflite_model_path))
         except:
             LOG.warning("convert is successed, but model running is failed, please check {} carefully!".format(tflite_model_path))
+    return max_error
 
 def parse_opt():
     parser = argparse.ArgumentParser()
