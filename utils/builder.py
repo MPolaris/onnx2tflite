@@ -66,9 +66,8 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
     '''
         build model inline node by iterate onnx nodes.
     '''
-    input_node_names, outputs_node_names = [], []
     for node in model_graph.node:
-        op_name, node_inputs, node_outputs, node_name = node.op_type, node.input, node.output, node.name
+        op_name, node_inputs, node_outputs = node.op_type, node.input, node.output
         op_attr = decode_node_attribute(node)
         
         tf_operator = OPERATOR.get(op_name)
