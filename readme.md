@@ -148,7 +148,7 @@ Step 3: Convert model to tflite without any quantification.<br/>
 ## TODO
 - [ ] support Transofomer, VIT\Swin Trasnformer etc...
 - [x] support cutoff onnx model and specify output layer
-- [ ] optimize [comfirm_acc.py](./test/comfirm_acc.py)
+- [x] optimize comfirm_acc.py(removed, The output checker will run automatically.)
 
 ---
 ## Limitation
