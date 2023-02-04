@@ -5,3 +5,4 @@ __pycache__/
 test.py
 gen_model.py
 models/
+unit_test/
