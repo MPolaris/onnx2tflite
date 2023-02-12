@@ -2,7 +2,7 @@ import os
 import logging
 import argparse
 from utils import load_onnx_modelproto, keras_builder, tflite_builder, get_elements_error
-__version__ = __VERSION__ = "1.0.0"
+__version__ = __VERSION__ = "1.1.0"
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("converter running:")
@@ -28,26 +28,47 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
         output_path = onnx_path
     output_path = os.path.join(output_path, model_name.split('.')[0])
 
-    max_error = 1000
+    keras_model_path = None
     if 'keras' in target_formats:
-        keras_model.save(output_path + ".h5")
-        LOG.info(f"keras model saved in {output_path}.h5")
+        keras_model_path = output_path + ".h5"
+        keras_model.save(keras_model_path)
+        LOG.info(f"keras model saved in {keras_model_path}")
 
+    tflite_model_path = None
     if 'tflite' in target_formats:
         tflite_model_path = output_path + ".tflite"
         with open(tflite_model_path, "wb") as fp:
             fp.write(tflite_model)
-        try:
-            max_error = get_elements_error(model_proto, tflite_model_path)
-            if max_error > 1e-2:
-                LOG.error("elements' max error has reached {:^.4f}, but convert is done, please check {} carefully!".format(max_error, tflite_model_path))
-            elif max_error > 1e-4:
-                LOG.warning("elements' max error is {:^.5f}, pass, tflite saved in {}".format(max_error, tflite_model_path))
+
+    convert_result = {"keras":keras_model_path, "tflite":tflite_model_path, "keras_error":0, "tflite_error":0}
+    # ignore quantization model
+    if int8_model:
+        return convert_result
+    
+    error_dict = {}
+    try:
+        error_dict = get_elements_error(model_proto, keras_model_path, tflite_model_path)
+        keras_error, tflite_error = error_dict.get("keras", None), error_dict.get("tflite", None)
+        if keras_error:
+            if keras_error > 1e-2:
+                LOG.error("h5 model elements' max error has reached {:^.4E}, but convert is done, please check {} carefully!".format(keras_error, keras_model_path))
+            elif keras_error > 1e-4:
+                LOG.warning("h5 model elements' max error is {:^.4E}, pass, h5 saved in {}".format(keras_error, keras_model_path))
             else:
-                LOG.info("elements' max error is {:^.6f}, pass, tflite saved in {}".format(max_error, tflite_model_path))
-        except:
-            LOG.warning("convert is successed, but model running is failed, please check {} carefully!".format(tflite_model_path))
-    return max_error
+                LOG.info("h5 model elements' max error is {:^.4E}, pass, h5 saved in {}".format(keras_error, keras_model_path))
+        if tflite_error:
+            if tflite_error > 1e-2:
+                LOG.error("tflite model elements' max error has reached {:^.4E}, but convert is done, please check {} carefully!".format(tflite_error, tflite_model_path))
+            elif tflite_error > 1e-4:
+                LOG.warning("tflite model elements' max error is {:^.4E}, pass, tflite saved in {}".format(tflite_error, tflite_model_path))
+            else:
+                LOG.info("tflite model elements' max error is {:^.4E}, pass, tflite saved in {}".format(tflite_error, tflite_model_path))
+    except:
+        LOG.warning("convert is successed, but model running is failed, please check carefully!")
+    
+    convert_result["keras_error"] = error_dict.get("keras", None)
+    convert_result["tflite_error"] = error_dict.get("tflite", None)
+    return convert_result
 
 def parse_opt():
     parser = argparse.ArgumentParser()
