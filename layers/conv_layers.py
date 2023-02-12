@@ -96,8 +96,7 @@ class TFConv():
         if pads is not None and max(pads) == 1 and max(strides) == 1:
             self.conv = keras.layers.Conv2D(
                 out_channel_num, kernel_size, strides, "SAME", use_bias=False if bias is None else True,
-                kernel_initializer=keras.initializers.Constant(weights),
-                bias_initializer='zeros' if bias is None else keras.initializers.Constant(bias),
+                weights=[weights] if bias is None else [weights, bias],
                 dilation_rate=dilations, groups=group)
         else:
             self.conv = keras.layers.Conv2D(
