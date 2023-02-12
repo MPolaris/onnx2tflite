@@ -146,6 +146,17 @@ class TFLog():
     def __call__(self, inputs, *args, **kwargs):
         return tf.log(inputs)
 
+@OPERATOR.register_operator("ReduceSum")
+class TFReduceSum():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.keep_dims = node_attribute.get("keepdims", 1) == 1
+        input_shape_len = len(tensor_grap[node_inputs[0]].shape)
+        self.axes = [dimension_utils.channel_to_last_dimension(i) if i >=0 else dimension_utils.channel_to_last_dimension(input_shape_len + i) for i in node_attribute.get("axes", [-1])]
+
+    def __call__(self, inputs, *args, **kwargs):
+        return tf.math.reduce_sum(inputs, axis=self.axes, keepdims=self.keep_dims)
+
 @OPERATOR.register_operator("ReduceMean")
 class TFReduceMean():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
