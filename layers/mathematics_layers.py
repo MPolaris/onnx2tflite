@@ -25,7 +25,7 @@ def get_number(tensor_grap, node_weights, node_inputs):
 
     if first_operand_flg and (not second_operand_flg):
         # 当first_operand为计算得出的，second_operand来自weight时
-        if second_operand.ndim == 1 and first_operand_flg.ndim >= 2:
+        if second_operand.ndim == 1 and first_operand.shape.ndims >= 2:
             # shape=1时，在torch和numpy中因为channel在最后，因此可以利用广播机制进行计算
             second_operand = second_operand[np.newaxis, ...]
             for _ in range(len(first_operand.shape) - 2):
@@ -36,7 +36,7 @@ def get_number(tensor_grap, node_weights, node_inputs):
             second_operand = dimension_utils.tensor_NCD_to_NDC_format(second_operand)
     elif (not first_operand_flg) and second_operand_flg:
         # 当second_operand为计算得出的，first_operand来自weight时
-        if first_operand.ndim == 1 and second_operand.ndim >= 2:
+        if first_operand.ndim == 1 and second_operand.shape.ndims >= 2:
             # shape=1时，在torch和numpy中因为channel在最后，因此可以利用广播机制进行计算
             first_operand = first_operand[np.newaxis, ...]
             for _ in range(len(second_operand.shape) - 2):

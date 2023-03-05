@@ -1,7 +1,8 @@
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from layers.dimension_utils import channel_to_last_dimension
+from layers.dimension_utils import channel_to_last_dimension, tensor_NCD_to_NDC_format
 from utils.op_registry import OPERATOR
 
 @OPERATOR.register_operator("Relu")
@@ -60,11 +61,17 @@ class TFPRelu():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
         super().__init__()
         if 'slope' in node_attribute:
-            self.slope = node_attribute['slope'].transpose(1, 2, 0)
+            self.slope = node_attribute['slope']
         elif node_inputs[1] in node_weights:
-            self.slope = node_weights[node_inputs[1]].transpose(1, 2, 0)
+            self.slope = node_weights[node_inputs[1]]
         else:
             self.slope = tensor_grap[node_inputs[1]]
+        if isinstance(self.slope, np.ndarray):
+            if self.slope.ndim == 1:
+                self.slope = np.expand_dims(self.slope, axis=[i for i in range(0, tensor_grap[node_inputs[0]].shape.ndims-2)])
+            elif self.slope.ndim > 2:
+                self.slope = tensor_NCD_to_NDC_format(self.slope)
+                
         self.PRelu = tf.keras.layers.PReLU(weights=[self.slope], shared_axes = [1, 2])
 
     def __call__(self, inputs):
