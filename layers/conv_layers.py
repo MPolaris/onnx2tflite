@@ -59,8 +59,14 @@ class Convlution():
         pads = node_attribute['pads'] if "pads" in node_attribute else None
         kernel_shape, strides = node_attribute.get('kernel_shape', 1), node_attribute.get('strides', 1)
 
-        weights = node_weights[node_inputs[1]].transpose(2,3,1,0)
-        bias = node_weights[node_inputs[2]] if len(node_inputs) == 3 else None
+        weights = node_weights[node_inputs[1]] if node_inputs[1] in node_weights else tensor_grap[node_inputs[1]]
+        out_channel, in_channel = weights.shape[:2]
+        weights = weights.transpose(2,3,1,0)
+
+        bias = None
+        if len(node_inputs) == 3:
+            bias = node_weights[node_inputs[2]] if node_inputs[2] in node_weights else tensor_grap[node_inputs[2]]
+
         if group == 1:
             self.conv = TFConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, weights, bias)
         elif group == out_channel:
