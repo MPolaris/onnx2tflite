@@ -2,7 +2,7 @@ import os
 import logging
 import argparse
 from utils import load_onnx_modelproto, keras_builder, tflite_builder, get_elements_error
-__version__ = __VERSION__ = "1.1.0"
+__version__ = __VERSION__ = "1.2.0"
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("converter running:")

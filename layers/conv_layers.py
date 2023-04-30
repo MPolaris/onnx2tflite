@@ -61,7 +61,9 @@ class Convlution():
 
         weights = node_weights[node_inputs[1]] if node_inputs[1] in node_weights else tensor_grap[node_inputs[1]]
         out_channel, in_channel = weights.shape[:2]
-        weights = weights.transpose(2,3,1,0)
+
+        channel_sequence = [2+i for i in range(len(weights.shape)-2)] + [1, 0]
+        weights = weights.transpose(*channel_sequence)
 
         bias = None
         if len(node_inputs) == 3:
@@ -70,17 +72,14 @@ class Convlution():
         if group == 1:
             self.conv = TFConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, weights, bias)
         elif group == out_channel:
-            weights = weights.transpose(0, 1, 3, 2)
-            self.conv = TFDepthwiseConv2D(kernel_shape, strides, dilations, pads, weights, bias)
+            self.conv = TFDepthwiseConv(kernel_shape, strides, dilations, pads, weights, bias)
         else:
             if USE_NATIVE_GROUP_CONV:
-                self.conv = TFConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, weights, bias,
-                                   group=group)
+                self.conv = TFConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, weights, bias, group=group)
                 LOG.warning(f"Group Convolution is detected, using native method, only supported tflite version >= 2.9, \
                                 if compatibility error occurs and please make USE_NATIVE_GROUP_CONV=False!")
             else:
-                self.conv = TFGroupConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, group, weights,
-                                        bias)
+                self.conv = TFGroupConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, weights, bias, group=group)
     
     def __call__(self, inputs):
         return self.conv(inputs)
@@ -91,6 +90,33 @@ class TFConv():
                         strides=1, dilations=1, pads=None, weights=None, bias=None, group=1):
         super().__init__()
 
+        if len(weights.shape) == 3:
+            self.conv1d_init(in_channel_num, out_channel_num, kernel_size, strides, dilations, pads, weights, bias, group)
+        elif len(weights.shape) == 4:
+            self.conv2d_init(in_channel_num, out_channel_num, kernel_size, strides, dilations, pads, weights, bias, group)
+        elif len(weights.shape) == 5:
+            self.conv3d_init(in_channel_num, out_channel_num, kernel_size, strides, dilations, pads, weights, bias, group)
+        else:
+            raise NotImplementedError(f"Conv{len(weights.shape)-2}d is not implemented")
+
+    def conv1d_init(self, in_channel_num, out_channel_num, kernel_size=1, 
+                    strides=1, dilations=1, pads=None, weights=None, bias=None, group=1):
+        self.pad =None
+        if pads is not None and max(pads) == 1 and max(strides) == 1:
+            self.conv = keras.layers.Conv1D(
+                out_channel_num, kernel_size, strides, "SAME", use_bias=False if bias is None else True,
+                weights=[weights] if bias is None else [weights, bias],
+                dilation_rate=dilations, groups=group)
+        else:
+            self.conv = keras.layers.Conv1D(
+                out_channel_num, kernel_size, strides, "VALID", use_bias=False if bias is None else True,
+                weights=[weights] if bias is None else [weights, bias],
+                dilation_rate=dilations, groups=group)
+            if pads is not None and max(pads) != 0:
+                self.pad = keras.layers.ZeroPadding1D(padding=pads)
+
+    def conv2d_init(self, in_channel_num, out_channel_num, kernel_size=1, 
+                        strides=1, dilations=1, pads=None, weights=None, bias=None, group=1):
         if isinstance(dilations, int):
             dilations = (dilations, dilations)
         if isinstance(strides, int):
@@ -117,6 +143,10 @@ class TFConv():
                     padding = ((pads[0], pads[2]), (pads[1], pads[3]))
                 self.pad = keras.layers.ZeroPadding2D(padding=padding)
 
+    def conv3d_init(self, in_channel_num, out_channel_num, kernel_size=1, 
+                    strides=1, dilations=1, pads=None, weights=None, bias=None, group=1):
+        raise NotImplementedError("Conv3d is not implemented")
+
     def __call__(self, inputs):
         if self.pad:
             inputs = self.pad(inputs)
@@ -127,8 +157,39 @@ class TFGroupConv():
         Group Convolution, using split method to implement, not native.
     '''
     def __init__(self, in_channel_num, out_channel_num, kernel_size=1, 
-                        strides=1, dilations=1, pads=None, groups=1, weights=None, bias=None):
+                        strides=1, dilations=1, pads=None, weights=None, bias=None, group=1):
         super().__init__()
+
+        if len(weights.shape) == 3:
+            self.groupconv1d_init(in_channel_num, out_channel_num, kernel_size, strides, dilations, pads, weights, bias, group)
+        elif len(weights.shape) == 4:
+            self.groupconv2d_init(in_channel_num, out_channel_num, kernel_size, strides, dilations, pads, weights, bias, group)
+        else:
+            raise NotImplementedError(f"GroupConv{len(weights.shape)-2}d is not implemented")
+
+    def groupconv1d_init(self, in_channel_num, out_channel_num, kernel_size=1, 
+                        strides=1, dilations=1, pads=None, weights=None, bias=None, group=1):
+        self.cin = in_channel_num
+        self.groups = group
+        out_channel_num = int(out_channel_num//group)
+        self.convs = []
+        for i in range(group):
+            if pads is not None and max(pads) == 1 and max(strides) == 1:
+                self.convs.append(keras.layers.Conv1D(
+                                out_channel_num, kernel_size, strides, 'SAME', use_bias=False if bias is None else True,
+                                dilation_rate=dilations,
+                                weights=[weights[:, :, i*out_channel_num:(i+1)*out_channel_num]] if bias is None else [weights[:, :, i*out_channel_num:(i+1)*out_channel_num], bias[i*out_channel_num:(i+1)*out_channel_num]]))
+            else:
+                self.convs.append(keras.layers.Conv1D(
+                                    out_channel_num, kernel_size, strides, 'VALID', use_bias=False if bias is None else True,
+                                    dilation_rate=dilations,
+                                    weights=[weights[:, :, i*out_channel_num:(i+1)*out_channel_num]] if bias is None else [weights[:, :, i*out_channel_num:(i+1)*out_channel_num], bias[i*out_channel_num:(i+1)*out_channel_num]]))
+                self.pad =None
+                if pads is not None and (max(pads) != 0 and not (max(pads) == 1 and max(strides) == 1)):
+                    self.pad = keras.layers.ZeroPadding1D(padding=pads)
+
+    def groupconv2d_init(self, in_channel_num, out_channel_num, kernel_size=1, 
+                        strides=1, dilations=1, pads=None, weights=None, bias=None, group=1):
         if isinstance(dilations, int):
             dilations = (dilations, dilations)
         if isinstance(strides, int):
@@ -136,19 +197,11 @@ class TFGroupConv():
         if dilations[0] != 1 and strides[0] != 1:
             raise Exception("Currently, specifying any dilation_rate value != 1 is incompatible with specifying any stride value != 1.")
         self.cin = in_channel_num
-        self.groups = groups
-        out_channel_num = int(out_channel_num//groups)
-        self.pad =None
-        if pads is not None and (max(pads) != 0 and not (max(pads) == 1 and max(strides) == 1)):
-            padding = None
-            if len(pads) == 2 and (pads[0] > 0 or pads[1] > 0):
-                padding = (pads[0], pads[1])
-            elif len(pads) == 4 and (pads[0] > 0 or pads[1] > 0 or pads[2] > 0 or pads[3] > 0):
-                padding = ((pads[0], pads[2]), (pads[1], pads[3]))
-            self.pad = keras.layers.ZeroPadding2D(padding=padding)
-        
+        self.groups = group
+        out_channel_num = int(out_channel_num//group)
+
         self.convs = []
-        for i in range(groups):
+        for i in range(group):
             if pads is not None and max(pads) == 1 and max(strides) == 1:
                 self.convs.append(keras.layers.Conv2D(
                                 out_channel_num, kernel_size, strides, 'SAME', use_bias=False if bias is None else True,
@@ -159,6 +212,14 @@ class TFGroupConv():
                                     out_channel_num, kernel_size, strides, 'VALID', use_bias=False if bias is None else True,
                                     dilation_rate=dilations,
                                     weights=[weights[:, :, :, i*out_channel_num:(i+1)*out_channel_num]] if bias is None else [weights[:, :, :, i*out_channel_num:(i+1)*out_channel_num], bias[i*out_channel_num:(i+1)*out_channel_num]]))
+                self.pad =None
+                if pads is not None and (max(pads) != 0 and not (max(pads) == 1 and max(strides) == 1)):
+                    padding = None
+                    if len(pads) == 2 and (pads[0] > 0 or pads[1] > 0):
+                        padding = (pads[0], pads[1])
+                    elif len(pads) == 4 and (pads[0] > 0 or pads[1] > 0 or pads[2] > 0 or pads[3] > 0):
+                        padding = ((pads[0], pads[2]), (pads[1], pads[3]))
+                    self.pad = keras.layers.ZeroPadding2D(padding=padding)
 
     def __call__(self, inputs):
         if self.pad is not None:
@@ -170,10 +231,43 @@ class TFGroupConv():
         outs = tf.concat(outs, axis=-1)
         return outs
 
-class TFDepthwiseConv2D():
+class TFDepthwiseConv():
     # Depthwise Convolution, group = 1
     def __init__(self, kernel_size=1, strides=1, dilations=1, pads=None, weights=None, bias=None) -> None:
         super().__init__()
+        if len(weights.shape) == 3:
+            weights = weights.transpose(0, 2, 1)
+            self.dwconv1d_init(kernel_size, strides, dilations, pads, weights, bias)
+        elif len(weights.shape) == 4:
+            weights = weights.transpose(0, 1, 3, 2)
+            self.dwconv2d_init(kernel_size, strides, dilations, pads, weights, bias)
+        else:
+            raise NotImplementedError(f"DepthwiseConv{len(weights.shape)-2}d is not implemented")
+
+    def dwconv1d_init(self, kernel_size=1, strides=1, dilations=1, pads=None, weights=None, bias=None):
+        self.pad =None
+        if pads is not None and max(pads) == 1 and max(strides) == 1:
+            self.conv = keras.layers.DepthwiseConv1D(
+                kernel_size, strides, "SAME", use_bias=False if bias is None else True,
+                weights=[weights] if bias is None else [weights, bias],
+                dilation_rate=dilations,
+                activation=None,
+                kernel_initializer='zeros',
+                bias_initializer='zeros'
+            )
+        else:
+            self.conv = keras.layers.DepthwiseConv1D(
+                kernel_size, strides, "VALID", use_bias=False if bias is None else True,
+                weights=[weights] if bias is None else [weights, bias],
+                dilation_rate=dilations,
+                activation=None,
+                kernel_initializer='zeros',
+                bias_initializer='zeros'
+            )
+            if pads is not None and max(pads) != 0:
+                self.pad = keras.layers.ZeroPadding1D(padding=pads)
+
+    def dwconv2d_init(self, kernel_size=1, strides=1, dilations=1, pads=None, weights=None, bias=None):
         if isinstance(dilations, int):
             dilations = (dilations, dilations)
         if isinstance(strides, int):

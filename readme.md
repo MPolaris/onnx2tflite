@@ -117,7 +117,7 @@ onnx_converter(
 - [AutoEncoder/VAE](https://github.com/AntixK/PyTorch-VAE)
 - all torchvision classification models
 - some segmation models in torchvision
-- 2D CNN without special operators(custom)
+- 1D or 2D CNN without special operators(custom)
 ---
 ## Add operator by yourself
 When you counter unspported operator, you can choose to add it by yourself or make an issue.<br/>
@@ -153,12 +153,11 @@ Step 3: Convert model to tflite without any quantification.<br/>
 ---
 ## Limitation
 - The number of operators can not cover all models.
-- Friendly to 2D vision CNN, and not support 3D CNN.
+- Friendly to 1D/2D vision CNN, and not support 3D CNN.
 - Bad support for some math or channel change operators(such as Squeeze\MatMul).
 ---
 
 ## Emmmmmmm
-It's amazing, TFLite doesn't support multi-input quantization, if you know how to do please give me a PR. \
 It's too disgusting for first(batch) or second(channel) axis change. There are always circumstances that have not been taken into account.
 
 # License
