@@ -1,3 +1,4 @@
+import tensorflow as tf
 '''
     shape and axis transform utils func.
 '''
@@ -29,7 +30,7 @@ def tensor_NCD_to_NDC_format(tensor):
     if(len(tensor.shape) > 2):
         shape = [i for i in range(len(tensor.shape))]
         shape = shape_NCD_to_NDC_format(shape)
-        tensor = tensor.transpose(*shape)
+        tensor = tf.transpose(tensor, perm=shape)
     return tensor
 
 def intfloat_to_list(x:int or float, lens:int):
