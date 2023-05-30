@@ -37,17 +37,19 @@ class TFConvTranspose():
         self.pad = None
         self.conv = keras.layers.Conv2DTranspose(filters=n_filters, kernel_size=(height, width), strides=strides, padding='VALID', use_bias=False if bias is None else True,
                                                     weights=[weights] if bias is None else [weights, bias],
-                                                    output_padding=0,
                                                     dilation_rate=dilations)
         if pads is not None and max(pads) != 0:
-            LOG.warning("ConvTranspose with pad will lead output error to bigger, please check it out.")
-            assert(len(pads) == 2 or (pads[2] == pads[0] and pads[3] == pads[1]))
-            self.pad = keras.layers.Cropping2D(pads[:2])
+            padding = None
+            if len(pads) == 2 and (pads[0] > 0 or pads[1] > 0):
+                padding = (pads[0], pads[1])
+            elif len(pads) == 4 and (pads[0] > 0 or pads[1] > 0 or pads[2] > 0 or pads[3] > 0):
+                padding = ((pads[0], pads[2]), (pads[1], pads[3]))
+            self.pad = keras.layers.Cropping2D(padding)
 
     def __call__(self, inputs):
+        inputs = self.conv(inputs)
         if self.pad:
             inputs = self.pad(inputs)
-        inputs = self.conv(inputs)
         return inputs
 
 @OPERATOR.register_operator("Conv")
