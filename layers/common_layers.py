@@ -210,7 +210,8 @@ class TFResize():
                 nh, nw = int(h*nh), int(w*nw)
             self.scale = (nh, nw)
         else:
-            raise KeyError("dynamic size is not supported for Resize in tflite, please fix scale before export onnx...")
+            scales = tensor_grap[node_inputs[0]].shape[1:3]*tensor_grap[node_inputs[2]][2:3]
+            self.scale = scales
 
         if node_attribute.get("mode", "nearest").lower() == 'nearest':
             self.method = tf.image.ResizeMethod.NEAREST_NEIGHBOR
