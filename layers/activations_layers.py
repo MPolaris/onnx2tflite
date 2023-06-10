@@ -24,7 +24,7 @@ class TFHardSigmoid():
         return tf.clip_by_value(self.alpha*inputs+self.beta, 0, 1)
 
 @OPERATOR.register_operator("HardSwish")
-class TFHardSwishd():
+class TFHardSwish():
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
 
@@ -140,7 +140,15 @@ class TFSoftplus():
         super().__init__()
 
     def __call__(self, inputs):
-        return tf.math.log(tf.exp(inputs) + 1)
+        return keras.activations.softplus(inputs)
+    
+@OPERATOR.register_operator("Softsign")
+class TFSoftsign():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return keras.activations.softsign(inputs)
 
 @OPERATOR.register_operator("Selu")
 class TFSelu():
@@ -149,3 +157,20 @@ class TFSelu():
 
     def __call__(self, inputs):
         return keras.activations.selu(inputs)
+    
+@OPERATOR.register_operator("Elu")
+class TFElu():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        super().__init__()
+
+    def __call__(self, inputs):
+        return keras.activations.elu(inputs)
+    
+@OPERATOR.register_operator("Celu")
+class TFCelu():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        super().__init__()
+        self.alpha = node_attribute.get("alpha", 1.0)
+
+    def __call__(self, inputs):
+        return tf.maximum(inputs, 0) + tf.minimum(0, self.alpha*(tf.exp(inputs/self.alpha)-1))
