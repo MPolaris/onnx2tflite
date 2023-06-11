@@ -66,13 +66,16 @@ class TFPRelu():
             self.slope = node_weights[node_inputs[1]]
         else:
             self.slope = tensor_grap[node_inputs[1]]
+        input_tensor_shape = tensor_grap[node_inputs[0]].shape
         if isinstance(self.slope, np.ndarray):
-            if self.slope.ndim == 1:
-                self.slope = np.expand_dims(self.slope, axis=[i for i in range(0, tensor_grap[node_inputs[0]].shape.ndims-2)])
-            elif self.slope.ndim > 2:
-                self.slope = tensor_NCD_to_NDC_format(self.slope)
+            while self.slope.ndim < input_tensor_shape.ndims:
+                self.slope = self.slope[np.newaxis, :]
+            self.slope = tensor_NCD_to_NDC_format(self.slope)
+            if self.slope.ndim > 1:
+                # remove batchsize
+                self.slope = self.slope[0]
                 
-        self.PRelu = tf.keras.layers.PReLU(weights=[self.slope], shared_axes = [1, 2])
+        self.PRelu = tf.keras.layers.PReLU(weights=[self.slope], shared_axes = [i for i in range(1, input_tensor_shape.ndims-1)])
 
     def __call__(self, inputs):
         return self.PRelu(inputs)
