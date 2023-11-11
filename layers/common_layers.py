@@ -112,7 +112,7 @@ class TFAveragePool():
                 pad_mode = "VALID"
                 break
         
-        self.avg_pool = keras.layers.AveragePooling2D(pool_size=kernel_shape[0], strides=strides[0], padding=pad_mode)
+        self.avg_pool = keras.layers.AveragePooling2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
         
         self.pad = None
         if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
@@ -144,7 +144,7 @@ class TFMaxPool():
                 pad_mode = "VALID"
                 break
 
-        self.max_pool = keras.layers.MaxPool2D(pool_size=kernel_shape[0], strides=strides[0], padding=pad_mode)
+        self.max_pool = keras.layers.MaxPool2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
         
         self.pad = None
         if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
