@@ -5,7 +5,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 from utils.op_registry import OPERATOR
-from layers.dimension_utils import intfloat_to_list
+from layers.dimension_utils import intfloat_to_list, channel_to_last_dimension
 
 LOG = logging.getLogger("common_layers :")
 
@@ -258,7 +258,32 @@ class TFDropout():
 
     def __call__(self, inputs):
         return inputs
+    
+@OPERATOR.register_operator("TopK")
+class TFTopK():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
 
+        self.axis = node_attribute.get("axis", -1)
+        self.largest = node_attribute.get("largest", 1)
+        self.sorted = bool(node_attribute.get("sorted", 1))
+        self.K = node_attribute.get('K') if len(node_inputs)==1 else node_weights[node_inputs[1]][0]
+
+        from tensorflow.keras.layers import Layer
+        class TopKLayer(Layer):
+            def __init__(self, k, sorted=True):
+                super(TopKLayer, self).__init__()
+                self.k = k
+                self.sorted = sorted
+
+            def call(self, inputs):
+                return tf.raw_ops.TopKV2(input=inputs, k=self.k, sorted=self.sorted)
+        
+        self.op = TopKLayer(self.K, sorted=self.sorted)
+
+    def __call__(self, inputs):
+        res = self.op(inputs)
+        return res[self.index]
+    
 @OPERATOR.register_operator("Cast")
 class TFCast():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):

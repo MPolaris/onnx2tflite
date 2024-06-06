@@ -133,16 +133,25 @@ class TFFlatten():
 class TFSplit():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
-        index = kwargs.get('index', 0)
-        start = 0
-        for i in range(index):
-            start += int(node_attribute['split'][i])
-        end = start + node_attribute['split'][index]
-        self.indices = tf.keras.backend.arange(start, end, 1)
+        self.outputs_nums = len(kwargs.get('outputs', [1]))
         self.axis = dimension_utils.channel_to_last_dimension(node_attribute.get("axis", 0))
+        split_args = None
+        if 'split' in node_attribute:
+            split_args = node_attribute['split']
+        else:
+            assert len(node_inputs) == 2 and node_inputs[1] in node_weights
+            split_args = node_weights[node_inputs[1]]
+        
+        self.indices = []
+        for i in range(self.outputs_nums):
+            start = 0
+            for i in range(i):
+                start += int(split_args[i])
+            end = start + split_args[i]
+            self.indices.append(tf.keras.backend.arange(start, end, 1))
 
     def __call__(self, inputs):
-        return tf.gather(inputs, indices=self.indices, axis=self.axis)
+        return [tf.gather(inputs, indices=indice, axis=self.axis) for indice in self.indices]
 
 @OPERATOR.register_operator("Expand")
 class TFExpand():

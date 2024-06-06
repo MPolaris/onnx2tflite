@@ -78,8 +78,12 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
         if len(node_inputs) > 0:
             _inputs = tf_tensor[node_inputs[0]] if node_inputs[0] in tf_tensor else onnx_weights[node_inputs[0]]
 
-        for index in range(len(node_outputs)):
-            tf_tensor[node_outputs[index]] = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, index=index)(_inputs)
+        res = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, outputs=node_outputs)(_inputs)
+        if isinstance(res, list):
+            for index in range(len(node_outputs)):
+                tf_tensor[node_outputs[index]] = res[index]
+        else:
+            tf_tensor[node_outputs[0]] = res
     
     '''
         build keras model
