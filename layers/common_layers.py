@@ -268,21 +268,9 @@ class TFTopK():
         self.sorted = bool(node_attribute.get("sorted", 1))
         self.K = node_attribute.get('K') if len(node_inputs)==1 else node_weights[node_inputs[1]][0]
 
-        from tensorflow.keras.layers import Layer
-        class TopKLayer(Layer):
-            def __init__(self, k, sorted=True):
-                super(TopKLayer, self).__init__()
-                self.k = k
-                self.sorted = sorted
-
-            def call(self, inputs):
-                return tf.raw_ops.TopKV2(input=inputs, k=self.k, sorted=self.sorted)
-        
-        self.op = TopKLayer(self.K, sorted=self.sorted)
-
     def __call__(self, inputs):
-        res = self.op(inputs)
-        return res[self.index]
+        res = tf.math.top_k(inputs, k=self.K, sorted=self.sorted)
+        return [res[0], res[1]] 
     
 @OPERATOR.register_operator("Cast")
 class TFCast():

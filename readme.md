@@ -110,6 +110,7 @@ onnx_converter(
 - [YOLOV5](https://github.com/ultralytics/yolov5)
 - [YOLOV6](https://github.com/meituan/YOLOv6)
 - [YOLOV7](https://github.com/WongKinYiu/yolov7)
+- [YOLOV10](https://github.com/THU-MIG/yolov10)
 - [MoveNet](https://github.com/fire717/movenet.pytorch)
 - [UNet\FPN](https://github.com/bigmb/Unet-Segmentation-Pytorch-Nest-of-Unets)
 - MLP(custom)

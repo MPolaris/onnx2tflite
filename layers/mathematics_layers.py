@@ -8,8 +8,23 @@ from layers import dimension_utils
 LOG = logging.getLogger("calculations_layers :")
 
 def np2tf(x):
+    dtype_map = {
+            "int32": tf.int32,
+            "int64": tf.int64,
+            "float32": tf.float32,
+            "float64": tf.float64,
+            "bool": tf.bool,
+            "uint8": tf.uint8,
+            "int8": tf.int8,
+            "int16": tf.int16,
+            "uint16": tf.uint16,
+            "uint32": tf.uint32,
+            "uint64": tf.uint64,
+            "complex64": tf.complex64,
+            "complex128": tf.complex128
+        }
     if isinstance(x, np.ndarray):
-        x = tf.convert_to_tensor(x, dtype=tf.float32)
+        x = tf.convert_to_tensor(x, dtype=dtype_map[x.dtype.name])
         return x, False
     return x, True
 
@@ -32,6 +47,7 @@ def match_tensor(x1:tf.Tensor or np.ndarray, x2:tf.Tensor or np.ndarray):
     
     new_shape = dimension_utils.shape_NCD_to_NDC_format([i for i in range(len(x2.shape))])
     x2 = tf.transpose(x2, new_shape)
+    x2 = tf.cast(x2, x1.dtype)
     return (x2, x1) if f2 else (x1, x2)
 
 @OPERATOR.register_operator("Add")
@@ -100,6 +116,23 @@ class TFMatMul():
         out = tf.matmul(self.first_operand, self.second_operand)
         out = dimension_utils.tensor_NCD_to_NDC_format(out)
         return out
+
+@OPERATOR.register_operator("Mod")
+class TFMod():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+        super().__init__()
+        self.fmod = bool(node_attribute.get("fmod", 0))
+        self.mod_value = None
+        if node_inputs[1] in node_weights:
+            self.mod_value = node_weights[node_inputs[1]]
+        else:
+            self.mod_value = tensor_grap[node_inputs[1]]
+
+    def __call__(self, inputs):
+        if self.fmod:
+            return tf.math.floormod(inputs, tf.cast(self.mod_value, inputs.dtype))
+        else:
+            return tf.math.mod(inputs, tf.cast(self.mod_value, inputs.dtype))
 
 @OPERATOR.register_operator("Pow")
 class TFPow():

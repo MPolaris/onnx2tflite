@@ -143,12 +143,11 @@ class TFSplit():
             split_args = node_weights[node_inputs[1]]
         
         self.indices = []
+        start, end = 0, 0
         for i in range(self.outputs_nums):
-            start = 0
-            for i in range(i):
-                start += int(split_args[i])
-            end = start + split_args[i]
+            end = start + int(split_args[i])
             self.indices.append(tf.keras.backend.arange(start, end, 1))
+            start = end
 
     def __call__(self, inputs):
         return [tf.gather(inputs, indices=indice, axis=self.axis) for indice in self.indices]
@@ -166,12 +165,65 @@ class TFExpand():
             elif self.shape[i] < inputs.shape[i] and self.shape[i] != 1:
                 inputs = tf.repeat(inputs, repeats=int(self.shape[i]), axis=i)
         return inputs
+    
+@OPERATOR.register_operator("GatherElements")
+class TFGatherElements():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+        super().__init__()
+        self.axis = node_attribute.get("axis", 1)
+        self.axis = dimension_utils.channel_to_last_dimension(self.axis)
+        self.indices = None
+        if 'indices' in node_attribute:
+            self.indices = node_attribute['indices']
+            self.indices = dimension_utils.tensor_NCD_to_NDC_format(self.indices)
+        elif node_inputs[1] in node_weights:
+            self.indices = node_weights[node_inputs[1]]
+            self.indices = dimension_utils.tensor_NCD_to_NDC_format(self.indices)
+        else:
+            self.indices = tensor_grap[node_inputs[1]]
+
+    def gather_elements(self, input_tensor, indices, axis):
+        # Get the shape of the input tensor and the indices tensor
+        input_shape = tf.shape(input_tensor)
+        indices_shape = tf.shape(indices)
+
+        # Create indices for all dimensions
+        idx = tf.meshgrid(*[tf.range(s) for s in indices_shape], indexing='ij')
+        idx = [tf.cast(i, tf.int64) for i in idx]
+
+        # Replace the axis index with the provided indices
+        idx[axis] = tf.cast(indices, tf.int64)
+
+        # Stack indices to form the final gather indices
+        gather_indices = tf.stack(idx, axis=-1)
+
+        # Use tf.gather_nd to gather elements
+        output_tensor = tf.gather_nd(input_tensor, gather_indices)
+
+        return output_tensor
+
+    def __call__(self, inputs):
+        return self.gather_elements(inputs, self.indices, self.axis)
+    
+@OPERATOR.register_operator("Tile")
+class TFTile():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+        super().__init__()
+        self.repeats = node_attribute['repeats'] if 'repeats' in node_attribute else node_weights[node_inputs[1]]
+        self.repeats = dimension_utils.shape_NCD_to_NDC_format(self.repeats)
+
+    def __call__(self, inputs):
+        for i in range(len(self.repeats)):
+            if self.repeats[i] > 1:
+                inputs = tf.repeat(inputs, self.repeats[i], axis=i)
+        return inputs
 
 @OPERATOR.register_operator("Unsqueeze")
 class TFUnsqueeze():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
-        self.axis = dimension_utils.channel_to_last_dimension(node_attribute['axes'][0])
+        self.axis = node_attribute['axes'] if 'axes' in node_attribute else node_weights[node_inputs[1]]
+        self.axis = dimension_utils.channel_to_last_dimension(self.axis[0])
 
     def __call__(self, inputs):
         return tf.expand_dims(inputs, self.axis)
@@ -180,7 +232,8 @@ class TFUnsqueeze():
 class TFSqueeze():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
         super().__init__()
-        self.axis = dimension_utils.channel_to_last_dimension(node_attribute['axes'][0])
+        self.axis = node_attribute['axes'] if 'axes' in node_attribute else node_weights[node_inputs[1]]
+        self.axis = dimension_utils.channel_to_last_dimension(self.axis[0])
 
     def __call__(self, inputs):
         return tf.squeeze(inputs, self.axis)
