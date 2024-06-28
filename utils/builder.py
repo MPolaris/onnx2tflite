@@ -96,15 +96,19 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
 
     return keras_model
 
-def tflite_builder(keras_model, weight_quant:bool=False, int8_model:bool=False, image_root:str=None,
+def tflite_builder(keras_model, weight_quant:bool=False, fp16_model=False, int8_model:bool=False, image_root:str=None,
                     int8_mean:list or float = [123.675, 116.28, 103.53], int8_std:list or float = [58.395, 57.12, 57.375]):
     converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
-    if weight_quant or int8_model:
+    if weight_quant or int8_model or fp16_model:
         converter.experimental_new_converter = True
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
 
-    if int8_model:
+    if fp16_model:
+        converter.target_spec.supported_types = [tf.float16]
+        converter.inference_input_type = tf.float32
+        converter.inference_output_type = tf.float32
+    elif int8_model:
         assert len(keras_model.inputs) == 1, f"help want, only support single input model."
         shape = list(keras_model.inputs[0].shape)
         dataset = RandomLoader(shape) if image_root is None else ImageLoader(image_root, shape, int8_mean, int8_std)
