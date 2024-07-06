@@ -10,7 +10,7 @@
 import logging
 import tensorflow as tf
 from tensorflow import keras
-from utils.op_registry import OPERATOR
+from onnx2tflite.utils.op_registry import OPERATOR
 
 LOG = logging.getLogger("convolution_layers :")
 

@@ -4,10 +4,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 from tensorflow import keras
 from onnx import numpy_helper
-from utils.op_registry import OPERATOR
-from utils.dataloader import RandomLoader, ImageLoader
+from .op_registry import OPERATOR
+from .dataloader import RandomLoader, ImageLoader
 
-from layers import conv_layers
+from onnx2tflite.layers import conv_layers
 
 # copy from https://github.com/gmalivenko/onnx2keras
 def decode_node_attribute(node)->dict:
