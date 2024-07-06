@@ -6,7 +6,7 @@ import pytest
 
 import torch
 import torchvision
-from converter import onnx_converter
+from onnx2tflite import onnx_converter
 
 MODEL_ROOT = "./unit_test"
 os.makedirs(MODEL_ROOT, exist_ok=True)

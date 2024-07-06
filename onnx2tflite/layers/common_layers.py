@@ -4,8 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from onnx2tflite.utils.op_registry import OPERATOR
-from .dimension_utils import intfloat_to_list, channel_to_last_dimension
+from onnx2tflite.utils import OPERATOR, intfloat_to_list
 
 LOG = logging.getLogger("common_layers :")
 

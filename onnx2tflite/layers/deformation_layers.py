@@ -1,8 +1,7 @@
 import logging
 import tensorflow as tf
 
-from onnx2tflite.utils.op_registry import OPERATOR
-from . import dimension_utils
+from onnx2tflite.utils import OPERATOR, dimension_utils
 
 LOG = logging.getLogger("deformation_layers :")
 

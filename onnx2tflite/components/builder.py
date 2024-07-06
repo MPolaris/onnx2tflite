@@ -4,9 +4,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 from tensorflow import keras
 from onnx import numpy_helper
-from .op_registry import OPERATOR
 from .dataloader import RandomLoader, ImageLoader
 
+from onnx2tflite.utils import OPERATOR
 from onnx2tflite.layers import conv_layers
 
 # copy from https://github.com/gmalivenko/onnx2keras

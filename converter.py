@@ -1,7 +1,7 @@
 import os
 import logging
 import argparse
-from onnx2tflite.utils import load_onnx_modelproto, keras_builder, tflite_builder, get_elements_error
+from onnx2tflite.components import load_onnx_modelproto, keras_builder, tflite_builder, get_elements_error
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("converter running:")
