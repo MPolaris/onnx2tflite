@@ -8,60 +8,15 @@ from .dataloader import RandomLoader, ImageLoader
 
 from onnx2tflite.utils import OPERATOR
 from onnx2tflite.layers import conv_layers
-
-# copy from https://github.com/gmalivenko/onnx2keras
-def decode_node_attribute(node)->dict:
-    """
-    Parse ONNX attributes to Python dictionary
-    :param args: ONNX attributes object
-    :return: Python dictionary
-    """
-    def onnx_attribute_to_dict(onnx_attr):
-        """
-        Parse ONNX attribute
-        :param onnx_attr: ONNX attribute
-        :return: Python data type
-        """
-        if onnx_attr.HasField('t'):
-            return numpy_helper.to_array(getattr(onnx_attr, 't'))
-
-        for attr_type in ['f', 'i']:
-            if onnx_attr.HasField(attr_type):
-                return getattr(onnx_attr, attr_type)
-
-        # s need to be decode, bytes to string
-        if onnx_attr.HasField('s'):
-            return getattr(onnx_attr, 's').decode()
-
-        for attr_type in ['floats', 'ints', 'strings']:
-            if getattr(onnx_attr, attr_type):
-                return list(getattr(onnx_attr, attr_type))
-    return {arg.name: onnx_attribute_to_dict(arg) for arg in node.attribute}
-
-onnx2tf_type = {
-    1: tf.float32,   # ONNX_FLOAT
-    2: tf.uint8,     # ONNX_UINT8
-    3: tf.int8,      # ONNX_INT8
-    4: tf.uint16,    # ONNX_UINT16
-    5: tf.int16,     # ONNX_INT16
-    6: tf.int32,     # ONNX_INT32
-    7: tf.int64,     # ONNX_INT64
-    8: tf.string,    # ONNX_STRING
-    9: tf.bool,      # ONNX_BOOL
-    10: tf.float16,  # ONNX_FLOAT16
-    11: tf.float64,  # ONNX_DOUBLE
-    12: tf.uint32,   # ONNX_UINT32
-    13: tf.uint64,   # ONNX_UINT64
-    14: tf.complex64,  # ONNX_COMPLEX64
-    15: tf.complex128 # ONNX_COMPLEX128
-}
-
+from onnx2tflite.utils.definitions import *
+from onnx2tflite.utils.graph_tools import build_tf_inputs, decode_node_attribute
 
 def keras_builder(onnx_model, native_groupconv:bool=False):
 
     conv_layers.USE_NATIVE_GROUP_CONV = native_groupconv
     
     model_graph = onnx_model.graph
+    node_dict, tf_tensor = {}, {}
 
     '''
         init onnx model's build-in tensors
@@ -73,14 +28,8 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
     '''
         build input nodes
     '''
-    tf_tensor, input_shape = {}, []
-    for inp in model_graph.input:
-        input_shape = [x.dim_value for x in inp.type.tensor_type.shape.dim]
-        if input_shape == []:
-            continue
-        batch_size = 1 if input_shape[0] <= 0 else input_shape[0]
-        input_shape = input_shape[2:] + input_shape[1:2]
-        tf_tensor[inp.name] = keras.Input(shape=input_shape, batch_size=batch_size, dtype=onnx2tf_type.get(inp.type.tensor_type.elem_type))
+    input_nodes = build_tf_inputs(model_graph, node_dict)
+    tf_tensor.update(input_nodes)
 
     '''
         build model inline node by iterate onnx nodes.
@@ -97,7 +46,7 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
         if len(node_inputs) > 0:
             _inputs = tf_tensor[node_inputs[0]] if node_inputs[0] in tf_tensor else onnx_weights[node_inputs[0]]
 
-        res = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, outputs=node_outputs)(_inputs)
+        res = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, outputs=node_outputs, node_dict=node_dict)(_inputs)
         if isinstance(res, list):
             for index in range(len(node_outputs)):
                 tf_tensor[node_outputs[index]] = res[index]
