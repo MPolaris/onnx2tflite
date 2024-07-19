@@ -11,6 +11,8 @@ import logging
 import tensorflow as tf
 from tensorflow import keras
 from onnx2tflite.utils.op_registry import OPERATOR
+from onnx2tflite.utils.definitions import Layout
+from onnx2tflite.utils.dimension_utils import tensor_NCD_to_NDC_format as NCD2NDC
 
 LOG = logging.getLogger("convolution_layers :")
 
@@ -24,7 +26,7 @@ USE_NATIVE_GROUP_CONV = False
 
 @OPERATOR.register_operator("ConvTranspose")
 class TFConvTranspose():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         # out_channel, in_channel = node_weights[node_inputs[1]].shape[:2]
         dilations, group = node_attribute.get('dilations', 1), node_attribute.get('group', 1)
@@ -46,7 +48,14 @@ class TFConvTranspose():
                 padding = ((pads[0], pads[2]), (pads[1], pads[3]))
             self.pad = keras.layers.Cropping2D(padding)
 
+        for nop in node_outputs:
+            layout_dict[nop] = Layout.Channel_Last
+
+        self.need_trans = layout_dict[node_inputs[0]] != Layout.Channel_Last
+
     def __call__(self, inputs):
+        if self.need_trans:
+            inputs = NCD2NDC(inputs)
         inputs = self.conv(inputs)
         if self.pad:
             inputs = self.pad(inputs)
@@ -54,7 +63,7 @@ class TFConvTranspose():
 
 @OPERATOR.register_operator("Conv")
 class Convlution():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         out_channel, in_channel = node_weights[node_inputs[1]].shape[:2]
         dilations, group = node_attribute.get('dilations', 1), node_attribute.get('group', 1)
@@ -82,8 +91,15 @@ class Convlution():
                                 if compatibility error occurs and please make USE_NATIVE_GROUP_CONV=False!")
             else:
                 self.conv = TFGroupConv(in_channel, out_channel, kernel_shape, strides, dilations, pads, weights, bias, group=group)
-    
+
+        for nop in node_outputs:
+            layout_dict[nop] = Layout.Channel_Last
+
+        self.need_trans = layout_dict[node_inputs[0]] != Layout.Channel_Last
+
     def __call__(self, inputs):
+        if self.need_trans:
+            inputs = NCD2NDC(inputs)
         return self.conv(inputs)
 
 class TFConv():

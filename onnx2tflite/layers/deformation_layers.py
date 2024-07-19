@@ -1,40 +1,31 @@
 import logging
 import tensorflow as tf
 
+from onnx2tflite.utils.definitions import Layout
 from onnx2tflite.utils import OPERATOR, dimension_utils
 
 LOG = logging.getLogger("deformation_layers :")
 
 @OPERATOR.register_operator("Transpose")
 class TFTranspose():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs)->None:
         super().__init__()
-        self.trans_in, self.trans_out = None, None
+        for nop in node_outputs:
+            layout_dict[nop] = Layout.Channel_First
         if kwargs.get("perm_list"):
             self.perm_list = kwargs.get("perm_list")
-        elif len(node_attribute['perm']) > 4:
-            self.perm_list = []
-            for axis in node_attribute['perm']:
-                new_axis = dimension_utils.channel_to_last_dimension(axis)
-                if new_axis == -1:
-                    new_axis = max(node_attribute['perm'])
-                self.perm_list.append(new_axis)
-            self.perm_list = dimension_utils.shape_NCD_to_NDC_format(self.perm_list)
-        else:
-            self.perm_list = [i for i in node_attribute['perm']]
+            return
+        self.trans_in = None
+        self.perm_list = [i for i in node_attribute['perm']]
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
             LOG.info("Transpose will process tensor after change back to NCHW format.")
             shape_len = len(tensor_grap[node_inputs[0]].shape)
             self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
-            self.trans_out = [0] + [n for n in range(2, len(self.perm_list))] + [1]
 
     def __call__(self, inputs):
-        if self.trans_in and self.trans_out:
+        if self.trans_in:
             inputs = tf.transpose(inputs, perm=self.trans_in)
-            inputs = tf.transpose(inputs, perm=self.perm_list)
-            inputs = tf.transpose(inputs, perm=self.trans_out)
-            return inputs
-        else:
-            return tf.transpose(inputs, perm=self.perm_list)
+        return tf.transpose(inputs, perm=self.perm_list)
 
 @OPERATOR.register_operator("Slice")
 class TFSlice():
@@ -82,19 +73,21 @@ class TFConcat():
 
 @OPERATOR.register_operator("Reshape")
 class TFReshape():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
         self.out_shape = node_weights[node_inputs[1]]
-        self.trans_in, self.trans_out = None, None
+        self.trans_in = None
         LOG.info("Reshape will process tensor after change back to NCHW format.")
-        shape_len = len(tensor_grap[node_inputs[0]].shape)
-        self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
-        self.trans_out = [0] + [n for n in range(2, len(self.out_shape))] + [1]
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            shape_len = len(tensor_grap[node_inputs[0]].shape)
+            self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
+        for nop in node_outputs:
+            layout_dict[nop] = Layout.Channel_First
 
     def __call__(self, inputs):
-        inputs = tf.transpose(inputs, perm=self.trans_in)
+        if self.trans_in:
+            inputs = tf.transpose(inputs, perm=self.trans_in)
         inputs = tf.reshape(inputs, shape=self.out_shape)
-        inputs = tf.transpose(inputs, perm=self.trans_out)
         return inputs
         
 @OPERATOR.register_operator("Flatten")

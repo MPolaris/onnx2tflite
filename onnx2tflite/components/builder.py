@@ -16,7 +16,7 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
     conv_layers.USE_NATIVE_GROUP_CONV = native_groupconv
     
     model_graph = onnx_model.graph
-    node_dict, tf_tensor = {}, {}
+    layout_dict, tf_tensor = {}, {}
 
     '''
         init onnx model's build-in tensors
@@ -28,7 +28,7 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
     '''
         build input nodes
     '''
-    input_nodes = build_tf_inputs(model_graph, node_dict)
+    input_nodes = build_tf_inputs(model_graph, layout_dict)
     tf_tensor.update(input_nodes)
 
     '''
@@ -46,7 +46,10 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
         if len(node_inputs) > 0:
             _inputs = tf_tensor[node_inputs[0]] if node_inputs[0] in tf_tensor else onnx_weights[node_inputs[0]]
 
-        res = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, outputs=node_outputs, node_dict=node_dict)(_inputs)
+        for index in range(len(node_outputs)):
+            layout_dict[node_outputs[index]] = layout_dict[node_inputs[0]]
+        
+        res = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, node_outputs, layout_dict)(_inputs)
         if isinstance(res, list):
             for index in range(len(node_outputs)):
                 tf_tensor[node_outputs[index]] = res[index]

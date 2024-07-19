@@ -32,29 +32,29 @@ def decode_node_attribute(node)->dict:
                 return list(getattr(onnx_attr, attr_type))
     return {arg.name: onnx_attribute_to_dict(arg) for arg in node.attribute}
 
-def build_tf_inputs(model_graph, node_dict:dict):
+def build_tf_inputs(model_graph, layout_dict:dict):
     inputs_name = []
     for inp in model_graph.input:
         input_shape = [x.dim_value for x in inp.type.tensor_type.shape.dim]
         if input_shape == []:
             continue
         inputs_name.append(inp.name)
-        node_dict[inp.name] = Node_Layout(inp.name)
+        layout_dict[inp.name] = Layout.Default
         if len(input_shape) < 3:
-            node_dict[inp.name].layout = Layout.Channel_None
+            layout_dict[inp.name] = Layout.Channel_None
 
     _inputs_name = inputs_name.copy()
     for node in model_graph.node:
         op_name, node_inputs = node.op_type, node.input
         # output_layout = Layout.Default
         for ninp in node_inputs:
-            if ninp in _inputs_name and op_name in FORCE_CHANNEL_LAST_OP and node_dict[ninp].layout == Layout.Default:
-                node_dict[ninp].layout = Layout.Channel_Last
+            if ninp in _inputs_name and op_name in FORCE_CHANNEL_LAST_OP and layout_dict[ninp] == Layout.Default:
+                layout_dict[ninp] = Layout.Channel_Last
                 _inputs_name.remove(ninp)
-            if ninp in _inputs_name and op_name in FORCE_CHANNEL_FIRST_OP and node_dict[ninp].layout == Layout.Default:
-                node_dict[ninp].layout = Layout.Channel_First
+            if ninp in _inputs_name and op_name in FORCE_CHANNEL_FIRST_OP and layout_dict[ninp] == Layout.Default:
+                layout_dict[ninp] = Layout.Channel_First
                 _inputs_name.remove(ninp)
-            # output_layout = output_layout | node_dict[ninp].layout
+            # output_layout = output_layout | node_dict[ninp]
         
         if len(_inputs_name) == 0:
             break 
@@ -66,7 +66,7 @@ def build_tf_inputs(model_graph, node_dict:dict):
             continue
         batch_size = 1 if input_shape[0] <= 0 else input_shape[0]
         input_shape = input_shape[1:]
-        if node_dict[inp.name].layout == Layout.Channel_Last:
+        if layout_dict[inp.name] == Layout.Channel_Last:
             input_shape = input_shape[1:] + input_shape[0:1]
         
         input_nodes[inp.name] = keras.Input(shape=input_shape, batch_size=batch_size, dtype=onnx2tf_type.get(inp.type.tensor_type.elem_type))
