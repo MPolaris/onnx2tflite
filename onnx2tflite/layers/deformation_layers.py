@@ -29,23 +29,25 @@ class TFTranspose():
 
 @OPERATOR.register_operator("Slice")
 class TFSlice():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         if len(node_inputs) == 1:
             self.starts = node_attribute['starts'][0]
             self.ends = node_attribute['ends'][0]
-            self.axis = dimension_utils.channel_to_last_dimension(node_attribute['axes'][0])
+            self.axis = node_attribute['axes'][0]
             self.steps = 1
         else:
             self.starts = node_weights[node_inputs[1]][0] if node_inputs[1] in node_weights else tensor_grap[node_inputs[1]][0]
             self.axis = node_weights[node_inputs[3]][0] if node_inputs[3] in node_weights else tensor_grap[node_inputs[3]][0]
-            self.axis = dimension_utils.channel_to_last_dimension(self.axis)
             self.ends = node_weights[node_inputs[2]][0] if node_inputs[2] in node_weights else tensor_grap[node_inputs[2]][0]
             self.ends = min(self.ends, tensor_grap[node_inputs[0]].shape[self.axis])
             if len(node_inputs) < 5:
                 self.steps = 1
             else:
                 self.steps = node_weights[node_inputs[4]][0] if node_inputs[4] in node_weights else tensor_grap[node_inputs[4]][0]
+        
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            self.axis = dimension_utils.channel_to_last_dimension(self.axis)
 
     def __call__(self, inputs):
         indices = tf.keras.backend.arange(self.starts, self.ends, step=self.steps)
@@ -53,20 +55,54 @@ class TFSlice():
 
 @OPERATOR.register_operator("Gather")
 class TFGather():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
-        self.axis = dimension_utils.channel_to_last_dimension(node_attribute.get('axis', 0))
+        self.axis = node_attribute.get('axis', 0)
         self.indices = tensor_grap[node_inputs[1]] if node_inputs[1] in tensor_grap else node_weights[node_inputs[1]]
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            self.axis = dimension_utils.channel_to_last_dimension(self.axis)
 
     def __call__(self, inputs):
         return tf.gather(inputs, self.indices, axis=self.axis)
 
 @OPERATOR.register_operator("Concat")
 class TFConcat():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
-        self._axis = dimension_utils.channel_to_last_dimension(node_attribute['axis'])
-        self._gather = [tensor_grap[x] if x in tensor_grap else dimension_utils.tensor_NCD_to_NDC_format(node_weights[x]) for x in node_inputs]
+        #TODO can be optimzer by watch after node, if conv to be channel last.
+        self._axis = node_attribute['axis']
+        # use `count` to count how much more for channel-last to channel-first
+        count = 0
+        for inp in node_inputs:
+            if inp in node_weights:
+                count -= 1
+            elif layout_dict[inp] == Layout.Channel_Last:
+                count += 1
+            else:
+                count -= 1
+        
+        self._gather = []
+        if count < 0:
+            # align to Channel_First
+            layout_dict[node_outputs[0]] = Layout.Channel_First
+            for inp in node_inputs:
+                if inp in tensor_grap:
+                    if layout_dict[inp] == Layout.Channel_Last:
+                        tensor_grap[inp] = dimension_utils.tensor_NDC_to_NCD_format(tensor_grap[inp])
+                    self._gather.append(tensor_grap[inp])
+                else:
+                    self._gather.append(node_weights[inp])
+        else:
+            # align to Channel_Last
+            layout_dict[node_outputs[0]] = Layout.Channel_Last
+            self._axis = dimension_utils.channel_to_last_dimension(self._axis)
+            for inp in node_inputs:
+                if inp in tensor_grap:
+                    if layout_dict[inp] != Layout.Channel_Last:
+                        tensor_grap[inp] = dimension_utils.tensor_NCD_to_NDC_format(tensor_grap[inp])
+                    self._gather.append(tensor_grap[inp])
+                else:
+                    self._gather.append(dimension_utils.tensor_NCD_to_NDC_format(node_weights[inp]))
 
     def __call__(self, *args, **kwargs):
         return tf.concat(self._gather, axis=self._axis)
