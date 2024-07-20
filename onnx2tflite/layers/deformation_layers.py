@@ -128,7 +128,7 @@ class TFReshape():
         
 @OPERATOR.register_operator("Flatten")
 class TFFlatten():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs)->None:
         super().__init__()
         num_elements = int(tensor_grap[node_inputs[0]].shape.num_elements()/tensor_grap[node_inputs[0]].shape[0])
         input_shape = tensor_grap[node_inputs[0]].shape
@@ -147,7 +147,7 @@ class TFFlatten():
             these memory order are all same.
         '''
         self.perm = None
-        if num_elements != max(input_shape[1:]):
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last and  num_elements != max(input_shape[1:]):
             self.perm = [0, len(input_shape)-1]
             for i in range(len(input_shape)-2):
                 self.perm.append(i+1)
@@ -159,10 +159,12 @@ class TFFlatten():
 
 @OPERATOR.register_operator("Split")
 class TFSplit():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs)->None:
         super().__init__()
         self.outputs_nums = len(kwargs.get('outputs', [1]))
-        self.axis = dimension_utils.channel_to_last_dimension(node_attribute.get("axis", 0))
+        self.axis = node_attribute.get("axis", 0)
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            self.axis = dimension_utils.channel_to_last_dimension(self.axis)
         split_args = None
         if 'split' in node_attribute:
             split_args = node_attribute['split']
@@ -182,10 +184,11 @@ class TFSplit():
 
 @OPERATOR.register_operator("Expand")
 class TFExpand():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs)->None:
         super().__init__()
-        self.shape = dimension_utils.shape_NCD_to_NDC_format(node_weights[node_inputs[1]])
-
+        self.shape = node_weights[node_inputs[1]]
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            self.shape = dimension_utils.shape_NCD_to_NDC_format(self.shape)
     def __call__(self, inputs):
         for i in range(len(self.shape)):
             if int(self.shape[i]//inputs.shape[i]) > 1:
@@ -196,10 +199,9 @@ class TFExpand():
     
 @OPERATOR.register_operator("GatherElements")
 class TFGatherElements():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         self.axis = node_attribute.get("axis", 1)
-        self.axis = dimension_utils.channel_to_last_dimension(self.axis)
         self.indices = None
         if 'indices' in node_attribute:
             self.indices = node_attribute['indices']
@@ -209,6 +211,10 @@ class TFGatherElements():
             self.indices = dimension_utils.tensor_NCD_to_NDC_format(self.indices)
         else:
             self.indices = tensor_grap[node_inputs[1]]
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            self.axis = dimension_utils.channel_to_last_dimension(self.axis)
+            if len(node_inputs) == 1 or layout_dict[node_inputs[1]] != Layout.Channel_Last:
+                self.indices = dimension_utils.tensor_NCD_to_NDC_format(self.indices)
 
     def gather_elements(self, input_tensor, indices, axis):
         # Get the shape of the input tensor and the indices tensor
@@ -235,10 +241,11 @@ class TFGatherElements():
     
 @OPERATOR.register_operator("Tile")
 class TFTile():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs)->None:
         super().__init__()
         self.repeats = node_attribute['repeats'] if 'repeats' in node_attribute else node_weights[node_inputs[1]]
-        self.repeats = dimension_utils.shape_NCD_to_NDC_format(self.repeats)
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            self.repeats = dimension_utils.shape_NCD_to_NDC_format(self.repeats)
 
     def __call__(self, inputs):
         for i in range(len(self.repeats)):
@@ -248,40 +255,58 @@ class TFTile():
 
 @OPERATOR.register_operator("Unsqueeze")
 class TFUnsqueeze():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs)->None:
         super().__init__()
         self.axis = node_attribute['axes'] if 'axes' in node_attribute else node_weights[node_inputs[1]]
-        self.axis = dimension_utils.channel_to_last_dimension(self.axis[0])
+        if not isinstance(self.axis, int):
+            self.axis = int(self.axis[0])
+        input_shape = tensor_grap[node_inputs[0]].shape
+        if len(input_shape) == 1:
+            layout_dict[node_outputs[0]] = Layout.Channel_None
+        elif len(input_shape) == 2:
+            layout_dict[node_outputs[0]] = Layout.Channel_First
+        else:
+            layout_dict[node_outputs[0]] = layout_dict[node_inputs[0]]
+            if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+                self.axis = dimension_utils.channel_to_last_dimension(self.axis)
 
     def __call__(self, inputs):
         return tf.expand_dims(inputs, self.axis)
 
 @OPERATOR.register_operator("Squeeze")
 class TFSqueeze():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs)->None:
         super().__init__()
         self.axis = node_attribute['axes'] if 'axes' in node_attribute else node_weights[node_inputs[1]]
-        self.axis = dimension_utils.channel_to_last_dimension(self.axis[0])
+        if not isinstance(self.axis, int):
+            self.axis = int(self.axis[0])
+        input_shape = tensor_grap[node_inputs[0]].shape
+        if len(input_shape) <= 3:
+            layout_dict[node_outputs[0]] = Layout.Channel_None
+        if len(input_shape) > 2 and layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            self.axis = dimension_utils.channel_to_last_dimension(self.axis)
 
     def __call__(self, inputs):
         return tf.squeeze(inputs, self.axis)
 
 @OPERATOR.register_operator("DepthToSpace")
 class TFDepthToSpace():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs)->None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs)->None:
         super().__init__()
         self.block_size = node_attribute.get("blocksize", 2)
         self.mode = node_attribute.get("mode", "DCR")
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
 
     def __call__(self, inputs):
         if self.mode == "DCR":
             return tf.nn.depth_to_space(inputs, self.block_size)
         elif self.mode == "CRD":
             # help want, native tensorflow is not support CRD mode, this way will generate 5 dims op.
+            assert self.channel_last, 'help need.' #TODO
             b, h, w, c = inputs.shape
-            tmp = tf.reshape(inputs, [b, h, w, c//(self.block_size * self.block_size), self.block_size, self.block_size])
-            tmp = tf.transpose(tmp, perm=[0, 1, 4, 2, 5, 3])
-            tmp = tf.reshape(tmp, [b, h*self.block_size, w*self.block_size, c//(self.block_size * self.block_size)])
-            return tmp
+            inputs = tf.reshape(inputs, [b, h, w, c//(self.block_size * self.block_size), self.block_size, self.block_size])
+            inputs = tf.transpose(inputs, perm=[0, 1, 4, 2, 5, 3])
+            inputs = tf.reshape(inputs, [b, h*self.block_size, w*self.block_size, c//(self.block_size * self.block_size)])
+            return inputs
         else:
             raise KeyError(f"For DepthToSpace, mode must be [DCR, CRD], not {self.mode}")
