@@ -18,7 +18,7 @@ class TFTranspose():
         self.trans_in = None
         self.perm_list = [i for i in node_attribute['perm']]
         if layout_dict[node_inputs[0]] == Layout.Channel_Last:
-            LOG.info("Transpose will process tensor after change back to NCHW format.")
+            # LOG.info("Transpose will process tensor after change back to NCHW format.")
             shape_len = len(tensor_grap[node_inputs[0]].shape)
             self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
 
@@ -113,7 +113,7 @@ class TFReshape():
         super().__init__()
         self.out_shape = node_weights[node_inputs[1]]
         self.trans_in = None
-        LOG.info("Reshape will process tensor after change back to NCHW format.")
+        # LOG.info("Reshape will process tensor after change back to NCHW format.")
         if layout_dict[node_inputs[0]] == Layout.Channel_Last:
             shape_len = len(tensor_grap[node_inputs[0]].shape)
             self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
@@ -298,11 +298,12 @@ class TFDepthToSpace():
         self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
 
     def __call__(self, inputs):
+        if not self.channel_last:
+            inputs = dimension_utils.tensor_NDC_to_NCD_format(inputs)
         if self.mode == "DCR":
             return tf.nn.depth_to_space(inputs, self.block_size)
         elif self.mode == "CRD":
             # help want, native tensorflow is not support CRD mode, this way will generate 5 dims op.
-            assert self.channel_last, 'help need.' #TODO
             b, h, w, c = inputs.shape
             inputs = tf.reshape(inputs, [b, h, w, c//(self.block_size * self.block_size), self.block_size, self.block_size])
             inputs = tf.transpose(inputs, perm=[0, 1, 4, 2, 5, 3])
