@@ -39,6 +39,6 @@ onnx2tf_type = {
     15: tf.complex128 # ONNX_COMPLEX128
 }
 
-FORCE_CHANNEL_LAST_OP = ["Conv", "ConvTranspose", "DepthToSpace"]
+FORCE_CHANNEL_LAST_OP = ["Conv", "ConvTranspose", "DepthToSpace", "Pad", "AveragePool", "MaxPool", "Upsample", "Resize", "Gemm"]
 FORCE_CHANNEL_FIRST_OP = ["Reshape", "Transpose", "ScatterND"]
 
