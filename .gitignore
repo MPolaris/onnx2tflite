@@ -6,3 +6,7 @@ test.py
 gen_model.py
 models/
 unit_test/
+onnx2tflite.egg-info/
+build/
+dist/
+main.py

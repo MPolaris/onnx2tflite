@@ -4,8 +4,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from utils.op_registry import OPERATOR
-from layers.dimension_utils import intfloat_to_list, channel_to_last_dimension
+from onnx2tflite.utils.definitions import Layout
+from onnx2tflite.utils import OPERATOR, intfloat_to_list, dimension_utils
 
 LOG = logging.getLogger("common_layers :")
 
@@ -29,21 +29,22 @@ class TFBatchNormalization():
 
 @OPERATOR.register_operator("InstanceNormalization")
 class TFInstanceNormalization():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
         self.epsilon = node_attribute.get("epsilon", 1e-5)
         self.scale = node_weights[node_inputs[1]]
         self.bias = node_weights[node_inputs[2]]
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
 
     def __call__(self, inputs):
-        axes = tuple(range(1, len(inputs.shape)-1))
+        axes = tuple(range(1, len(inputs.shape)-1)) if self.channel_last else tuple(range(2, len(inputs.shape)))
         mean = tf.reduce_mean(inputs, axis=axes, keepdims=True)
         var = tf.math.reduce_variance(inputs, axis= axes, keepdims=True)
         return self.scale*(inputs - mean)/tf.sqrt(var + self.epsilon) + self.bias
 
 @OPERATOR.register_operator("Pad")
 class TFPad():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
         if node_attribute.get("pads") is not None:
             pads = node_attribute['pads']
@@ -53,8 +54,12 @@ class TFPad():
             pads = tensor_grap[node_inputs[1]]
         self.pad = [[pads[0], pads[4]], [pads[2], pads[6]], [pads[3], pads[7]], [pads[1], pads[5]]]
         self.model = node_attribute.get("mode", "constant").upper()
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
+        layout_dict[node_outputs[0]] = Layout.Channel_Last
 
     def __call__(self, inputs):
+        if not self.channel_last:
+            inputs = dimension_utils.tensor_NCD_to_NDC_format(inputs)
         return tf.pad(inputs, self.pad, mode=self.model)
 
 @OPERATOR.register_operator("Clip")
@@ -77,23 +82,31 @@ class TFClip():
 
 @OPERATOR.register_operator("TFGlobalMaxPool")
 class TFGlobalMaxPool():
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
 
     def __call__(self, inputs):
-        return tf.reduce_max(inputs, axis=[i for i in range(1, len(inputs.shape)-1)], keepdims=True)
+        if self.channel_last:
+            return tf.reduce_max(inputs, axis=[i for i in range(1, len(inputs.shape)-1)], keepdims=True)
+        else:
+            return tf.reduce_max(inputs, axis=[i for i in range(2, len(inputs.shape))], keepdims=True)
 
 @OPERATOR.register_operator("GlobalAveragePool")
 class TFGlobalAveragePool():
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
 
     def __call__(self, inputs):
-        return tf.reduce_mean(inputs, axis=[i for i in range(1, len(inputs.shape)-1)], keepdims=True)
+        if self.channel_last:
+            return tf.reduce_mean(inputs, axis=[i for i in range(1, len(inputs.shape)-1)], keepdims=True)
+        else:
+            return tf.reduce_mean(inputs, axis=[i for i in range(2, len(inputs.shape))], keepdims=True)
 
 @OPERATOR.register_operator("AveragePool")
 class TFAveragePool():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         kernel_shape = intfloat_to_list(node_attribute.get("kernel_shape", [2, 2]), 2)
         strides = intfloat_to_list(node_attribute.get("strides", [1, 1]), 2)
@@ -107,25 +120,31 @@ class TFAveragePool():
         input_shape = tensor_grap[node_inputs[0]].shape
         for i in range(len(input_shape)-2):
             pad_shape = pads[i] + pads[i+2]
-            output_shape_raw = (input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1
-            if func(output_shape_raw) != input_shape[1+i]:
+            onnx_output_shape = func((input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1)
+            tf_output_shape = math.floor((input_shape[1+i] - kernel_shape[i]) / strides[i]) + 1
+            pads[2+i] = max(onnx_output_shape-tf_output_shape, pads[2+i]) # right_down pad
+            if pad_mode == "SAME" and onnx_output_shape != input_shape[1+i]:
                 pad_mode = "VALID"
-                break
-        
-        self.avg_pool = keras.layers.AveragePooling2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
+        self.max_pool = keras.layers.MaxPool2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
         
         self.pad = None
         if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
-            self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
+            if np.sum(pads) > 0:
+                self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
+            
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
+        layout_dict[node_outputs[0]] = Layout.Channel_Last
 
     def __call__(self, inputs):
+        if not self.channel_last:
+            inputs = dimension_utils.tensor_NCD_to_NDC_format(inputs)
         if self.pad:
             inputs = self.pad(inputs)
         return self.avg_pool(inputs)
 
 @OPERATOR.register_operator("MaxPool")
 class TFMaxPool():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         kernel_shape = intfloat_to_list(node_attribute.get("kernel_shape", [2, 2]), 2)
         strides = intfloat_to_list(node_attribute.get("strides", [1, 1]), 2)
@@ -139,25 +158,31 @@ class TFMaxPool():
         input_shape = tensor_grap[node_inputs[0]].shape
         for i in range(len(input_shape)-2):
             pad_shape = pads[i] + pads[i+2]
-            output_shape_raw = (input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1
-            if func(output_shape_raw) != input_shape[1+i]:
+            onnx_output_shape = func((input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1)
+            tf_output_shape = math.floor((input_shape[1+i] - kernel_shape[i]) / strides[i]) + 1
+            pads[2+i] = max(onnx_output_shape-tf_output_shape, pads[2+i]) # right_down pad
+            if pad_mode == "SAME" and onnx_output_shape != input_shape[1+i]:
                 pad_mode = "VALID"
-                break
-
         self.max_pool = keras.layers.MaxPool2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
         
         self.pad = None
         if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
-            self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
+            if np.sum(pads) > 0:
+                self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
+            
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
+        layout_dict[node_outputs[0]] = Layout.Channel_Last
 
     def __call__(self, inputs):
+        if not self.channel_last:
+            inputs = dimension_utils.tensor_NCD_to_NDC_format(inputs)
         if self.pad:
             inputs = self.pad(inputs)
         return self.max_pool(inputs)
 
 @OPERATOR.register_operator("Upsample")
 class TFUpsample():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
         _, h, w, _ = tensor_grap[node_inputs[0]].shape
         scale = node_weights[node_inputs[1]]
@@ -168,7 +193,12 @@ class TFUpsample():
         else:
             self.method = tf.image.ResizeMethod.BILINEAR
 
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
+        layout_dict[node_outputs[0]] = Layout.Channel_Last
+
     def __call__(self, inputs):
+        if not self.channel_last:
+            inputs = dimension_utils.tensor_NCD_to_NDC_format(inputs)
         return tf.image.resize(inputs,  self.scale, method=self.method)
 
 @OPERATOR.register_operator("Constant")
@@ -182,26 +212,28 @@ class TFConstant():
 
 @OPERATOR.register_operator("ScatterND")
 class TFScatterND():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
         self.indices = node_weights[node_inputs[1]]
-        shape_len = len(tensor_grap[node_inputs[0]].shape)
-        self.trans_in = [0, shape_len-1] + [n for n in range(1, shape_len-1)]
-        self.trans_out = [0] + [n for n in range(2, shape_len)] + [1]
+        self.channle_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
         if node_inputs[2] in tensor_grap:
-            self.updates = tf.transpose(tensor_grap[node_inputs[2]], perm=self.trans_in)
+            self.updates = tensor_grap[node_inputs[2]]
+            if self.channle_last:
+                self.updates = dimension_utils.tensor_NDC_to_NCD_format(self.updates)
         else:
             self.updates = node_weights[node_inputs[2]]
 
+        layout_dict[node_outputs[0]] = Layout.Channel_First
+
     def __call__(self, inputs):
-        inputs = tf.transpose(inputs, perm=self.trans_in)
+        if self.channle_last:
+            inputs = dimension_utils.tensor_NDC_to_NCD_format(inputs)
         inputs = tf.tensor_scatter_nd_update(inputs, self.indices, self.updates)
-        inputs = tf.transpose(inputs, perm=self.trans_out)
         return inputs
 
 @OPERATOR.register_operator("Resize")
 class TFResize():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
         if node_inputs[-1] in node_weights:
             _, _, nh, nw = node_weights[node_inputs[-1]]
@@ -218,15 +250,17 @@ class TFResize():
         else:
             self.method = tf.image.ResizeMethod.BILINEAR
 
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
+        layout_dict[node_outputs[0]] = Layout.Channel_Last
+
     def __call__(self, inputs):
+        if not self.channel_last:
+            inputs = dimension_utils.tensor_NCD_to_NDC_format(inputs)
         return tf.image.resize(inputs,  self.scale, method=self.method)
 
 @OPERATOR.register_operator("Gemm")
 class TFGemm():
-    '''
-        全连接函数, torch.linear, tf.layers.dense, keras.layers.Dense
-    '''
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         if len(node_inputs) > 2:
             weights = [node_weights[node_inputs[1]].T, node_weights[node_inputs[2]]]
@@ -236,8 +270,13 @@ class TFGemm():
         self.dense = keras.layers.Dense(weights[0].shape[1],
                                         weights=weights,
                                         use_bias=len(weights)==2)
+        
+        self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
+        layout_dict[node_outputs[0]] = Layout.Channel_Last
 
     def __call__(self, inputs):
+        if not self.channel_last:
+            inputs = dimension_utils.tensor_NCD_to_NDC_format(inputs)
         return self.dense(inputs)
 
 @OPERATOR.register_operator("Identity")

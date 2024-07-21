@@ -2,8 +2,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from layers.dimension_utils import channel_to_last_dimension, tensor_NCD_to_NDC_format
-from utils.op_registry import OPERATOR
+from onnx2tflite.utils.definitions import Layout
+from onnx2tflite.utils import OPERATOR, channel_to_last_dimension, tensor_NCD_to_NDC_format
 
 @OPERATOR.register_operator("Relu")
 class TFRelu():
@@ -58,7 +58,7 @@ class TFLeakyRelu():
 
 @OPERATOR.register_operator("PRelu")
 class TFPRelu():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         if 'slope' in node_attribute:
             self.slope = node_attribute['slope']
@@ -67,15 +67,17 @@ class TFPRelu():
         else:
             self.slope = tensor_grap[node_inputs[1]]
         input_tensor_shape = tensor_grap[node_inputs[0]].shape
+        channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
         if isinstance(self.slope, np.ndarray):
             while self.slope.ndim < input_tensor_shape.ndims:
                 self.slope = self.slope[np.newaxis, :]
-            self.slope = tensor_NCD_to_NDC_format(self.slope)
+            if channel_last:
+                self.slope = tensor_NCD_to_NDC_format(self.slope)
             if self.slope.ndim > 1:
                 # remove batchsize
                 self.slope = self.slope[0]
-                
-        self.PRelu = tf.keras.layers.PReLU(weights=[self.slope], shared_axes = [i for i in range(1, input_tensor_shape.ndims-1)])
+        axes = [i for i in range(1, input_tensor_shape.ndims-1)] if channel_last else [i for i in range(2, input_tensor_shape.ndims)]
+        self.PRelu = tf.keras.layers.PReLU(weights=[self.slope], shared_axes = axes)
 
     def __call__(self, inputs):
         return self.PRelu(inputs)
@@ -130,9 +132,13 @@ class TFTanh():
 
 @OPERATOR.register_operator("Softmax")
 class TFSoftmax():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
-        self.axis = channel_to_last_dimension(node_attribute.get('axis', -1))
+        self.axis = node_attribute.get('axis', -1)
+        if self.axis == -1:
+            self.axis = len(tensor_grap[node_inputs[0]].shape.as_list()) - 1
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            self.axis = channel_to_last_dimension(self.axis)
 
     def __call__(self, inputs):
         return keras.activations.softmax(inputs, axis=self.axis)

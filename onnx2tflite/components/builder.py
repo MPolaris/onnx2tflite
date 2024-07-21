@@ -4,45 +4,19 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 from tensorflow import keras
 from onnx import numpy_helper
-from utils.op_registry import OPERATOR
-from utils.dataloader import RandomLoader, ImageLoader
+from .dataloader import RandomLoader, ImageLoader
 
-from layers import conv_layers
-
-# copy from https://github.com/gmalivenko/onnx2keras
-def decode_node_attribute(node)->dict:
-    """
-    Parse ONNX attributes to Python dictionary
-    :param args: ONNX attributes object
-    :return: Python dictionary
-    """
-    def onnx_attribute_to_dict(onnx_attr):
-        """
-        Parse ONNX attribute
-        :param onnx_attr: ONNX attribute
-        :return: Python data type
-        """
-        if onnx_attr.HasField('t'):
-            return numpy_helper.to_array(getattr(onnx_attr, 't'))
-
-        for attr_type in ['f', 'i']:
-            if onnx_attr.HasField(attr_type):
-                return getattr(onnx_attr, attr_type)
-
-        # s need to be decode, bytes to string
-        if onnx_attr.HasField('s'):
-            return getattr(onnx_attr, 's').decode()
-
-        for attr_type in ['floats', 'ints', 'strings']:
-            if getattr(onnx_attr, attr_type):
-                return list(getattr(onnx_attr, attr_type))
-    return {arg.name: onnx_attribute_to_dict(arg) for arg in node.attribute}
+from onnx2tflite.utils import OPERATOR
+from onnx2tflite.layers import conv_layers
+from onnx2tflite.utils.definitions import *
+from onnx2tflite.utils.graph_tools import build_tf_inputs, decode_node_attribute
 
 def keras_builder(onnx_model, native_groupconv:bool=False):
 
     conv_layers.USE_NATIVE_GROUP_CONV = native_groupconv
     
     model_graph = onnx_model.graph
+    layout_dict, tf_tensor = {}, {}
 
     '''
         init onnx model's build-in tensors
@@ -54,14 +28,8 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
     '''
         build input nodes
     '''
-    tf_tensor, input_shape = {}, []
-    for inp in model_graph.input:
-        input_shape = [x.dim_value for x in inp.type.tensor_type.shape.dim]
-        if input_shape == []:
-            continue
-        batch_size = 1 if input_shape[0] <= 0 else input_shape[0]
-        input_shape = input_shape[2:] + input_shape[1:2]
-        tf_tensor[inp.name] = keras.Input(shape=input_shape, batch_size=batch_size)
+    input_nodes = build_tf_inputs(model_graph, layout_dict)
+    tf_tensor.update(input_nodes)
 
     '''
         build model inline node by iterate onnx nodes.
@@ -78,7 +46,11 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
         if len(node_inputs) > 0:
             _inputs = tf_tensor[node_inputs[0]] if node_inputs[0] in tf_tensor else onnx_weights[node_inputs[0]]
 
-        res = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, outputs=node_outputs)(_inputs)
+        # init layout
+        for index in range(len(node_outputs)):
+            layout_dict[node_outputs[index]] = layout_dict.get(node_inputs[0], Layout.Default)
+        
+        res = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, node_outputs, layout_dict)(_inputs)
         if isinstance(res, list):
             for index in range(len(node_outputs)):
                 tf_tensor[node_outputs[index]] = res[index]
@@ -93,8 +65,13 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
     keras_model = keras.Model(inputs=input_nodes, outputs=outputs_nodes)
     keras_model.trainable = False
     # keras_model.summary()
-
-    return keras_model
+    # print(layout_dict)
+    input_layout, output_layout = {}, {}
+    for inp in model_graph.input:
+        input_layout[inp.name] = layout_dict[inp.name]
+    for oup in model_graph.output:
+        output_layout[oup.name] = layout_dict[oup.name]
+    return keras_model, input_layout, output_layout
 
 def tflite_builder(keras_model, weight_quant:bool=False, fp16_model=False, int8_model:bool=False, image_root:str=None,
                     int8_mean:list or float = [123.675, 116.28, 103.53], int8_std:list or float = [58.395, 57.12, 57.375]):
