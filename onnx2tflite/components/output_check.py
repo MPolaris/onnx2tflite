@@ -2,6 +2,8 @@ import os
 import numpy as np
 import tensorflow as tf
 import onnxruntime as ort
+from onnx2tflite.utils.definitions import Layout
+from onnx2tflite.utils.dimension_utils import tensor_NDC_to_NCD_format
 
 def tflite_run(model_path:str) -> np.ndarray:
     '''
@@ -16,11 +18,6 @@ def tflite_run(model_path:str) -> np.ndarray:
 
     # only compare one output is ok.
     tflite_output = tflite_runtime.get_tensor(output_details[0]['index'])
-    if len(tflite_output.shape) > 2:
-        shape = [i for i in range(len(tflite_output.shape))]
-        newshape = [shape[0], shape[-1], *shape[1:-1]]
-        tflite_output = tflite_output.transpose(*newshape)
-
     return tflite_output
 
 def keras_run(model_path:str) -> np.ndarray:
@@ -36,18 +33,13 @@ def keras_run(model_path:str) -> np.ndarray:
     # only compare one output is ok.
     if isinstance(keras_output, list):
         keras_output = keras_output[0]
-    
-    if len(keras_output.shape) > 2:
-        shape = [i for i in range(len(keras_output.shape))]
-        newshape = [shape[0], shape[-1], *shape[1:-1]]
-        keras_output = keras_output.transpose(*newshape)
-    
     return keras_output
     
         
-def get_elements_error(onnx_proto, keras_model_path:str, tflite_model_path:str) -> dict:
+def get_elements_error(onnx_proto, keras_model_path:str, tflite_model_path:str, input_layout:dict, output_layout:dict) -> dict:
     '''
         use ones input arr to check model.
+        more carefully check is up to youself custom code.
     '''
     result = {}
     # test onnx
@@ -63,9 +55,16 @@ def get_elements_error(onnx_proto, keras_model_path:str, tflite_model_path:str) 
             _transpose_index = _transpose_index[0:1] + _transpose_index[2:] + _transpose_index[1:2]
     onnx_outputs = onnx_runtime.run([], onnx_inputs)
 
+    channel_last = False
+    for oup in onnx_proto.graph.output:
+        channel_last = output_layout[oup.name] == Layout.Channel_Last
+        break
+
     if keras_model_path is not None:
         # test keras model
         keras_output = keras_run(keras_model_path)
+        if channel_last:
+            keras_output = tensor_NDC_to_NCD_format(keras_output)
         # get max error
         keras_max_error = 1000
         for onnx_output in onnx_outputs:
@@ -79,6 +78,8 @@ def get_elements_error(onnx_proto, keras_model_path:str, tflite_model_path:str) 
     if tflite_model_path is not None:
         # test tflite
         tflite_output = tflite_run(tflite_model_path)
+        if channel_last:
+            tflite_output = tensor_NDC_to_NCD_format(tflite_output)
         # get max error
         tflite_max_error = 1000
         for onnx_output in onnx_outputs:

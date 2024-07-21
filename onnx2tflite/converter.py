@@ -41,7 +41,7 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
     
     model_proto = load_onnx_modelproto(onnx_model_path, input_node_names, output_node_names, need_simplify)
 
-    keras_model = keras_builder(model_proto, native_groupconv)
+    keras_model, input_layout, output_layout = keras_builder(model_proto, native_groupconv)
 
     if 'tflite' in target_formats:
         tflite_model = tflite_builder(keras_model, weight_quant, fp16_model, int8_model, image_root, int8_mean, int8_std)
@@ -75,7 +75,7 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
     
     error_dict = {}
     try:
-        error_dict = get_elements_error(model_proto, keras_model_path, tflite_model_path)
+        error_dict = get_elements_error(model_proto, keras_model_path, tflite_model_path, input_layout, output_layout)
         keras_error, tflite_error = error_dict.get("keras", None), error_dict.get("tflite", None)
         if keras_error:
             if keras_error > 1e-2:

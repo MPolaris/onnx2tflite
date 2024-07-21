@@ -136,7 +136,7 @@ class TFSoftmax():
         super().__init__()
         self.axis = node_attribute.get('axis', -1)
         if self.axis == -1:
-            self.axis = int(tf.rank(tensor_grap[node_inputs[0]]))
+            self.axis = len(tensor_grap[node_inputs[0]].shape.as_list()) - 1
         if layout_dict[node_inputs[0]] == Layout.Channel_Last:
             self.axis = channel_to_last_dimension(self.axis)
 

@@ -64,10 +64,14 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
     outputs_nodes = [tf_tensor[x.name] for x in model_graph.output]
     keras_model = keras.Model(inputs=input_nodes, outputs=outputs_nodes)
     keras_model.trainable = False
-    keras_model.summary()
-    print(layout_dict)
-
-    return keras_model
+    # keras_model.summary()
+    # print(layout_dict)
+    input_layout, output_layout = {}, {}
+    for inp in model_graph.input:
+        input_layout[inp.name] = layout_dict[inp.name]
+    for oup in model_graph.output:
+        output_layout[oup.name] = layout_dict[oup.name]
+    return keras_model, input_layout, output_layout
 
 def tflite_builder(keras_model, weight_quant:bool=False, fp16_model=False, int8_model:bool=False, image_root:str=None,
                     int8_mean:list or float = [123.675, 116.28, 103.53], int8_std:list or float = [58.395, 57.12, 57.375]):

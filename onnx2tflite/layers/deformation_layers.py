@@ -46,6 +46,12 @@ class TFSlice():
             else:
                 self.steps = node_weights[node_inputs[4]][0] if node_inputs[4] in node_weights else tensor_grap[node_inputs[4]][0]
         
+        shape = tensor_grap[node_inputs[0]].shape.as_list()
+        if self.starts < 0:
+            self.starts = shape[self.axis] + self.starts
+        if self.ends < 0:
+            self.ends = shape[self.axis] + self.ends
+
         if layout_dict[node_inputs[0]] == Layout.Channel_Last:
             self.axis = dimension_utils.channel_to_last_dimension(self.axis)
 
@@ -161,7 +167,7 @@ class TFFlatten():
 class TFSplit():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs)->None:
         super().__init__()
-        self.outputs_nums = len(kwargs.get('outputs', [1]))
+        self.outputs_nums = len(node_outputs)
         self.axis = node_attribute.get("axis", 0)
         if layout_dict[node_inputs[0]] == Layout.Channel_Last:
             self.axis = dimension_utils.channel_to_last_dimension(self.axis)
