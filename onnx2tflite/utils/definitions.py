@@ -1,7 +1,6 @@
-import onnx
 import tensorflow as tf
-from enum import Enum, unique
 from abc import ABC
+from enum import Enum, unique
 
 @unique
 class Layout(Enum):
@@ -39,6 +38,22 @@ onnx2tf_type = {
     15: tf.complex128 # ONNX_COMPLEX128
 }
 
+np2tf_type = {
+    "int32": tf.int32,
+    "int64": tf.int64,
+    "float32": tf.float32,
+    "float64": tf.float64,
+    "bool": tf.bool,
+    "uint8": tf.uint8,
+    "int8": tf.int8,
+    "int16": tf.int16,
+    "uint16": tf.uint16,
+    "uint32": tf.uint32,
+    "uint64": tf.uint64,
+    "complex64": tf.complex64,
+    "complex128": tf.complex128
+}
+
 FORCE_CHANNEL_LAST_OP = ["Conv", "ConvTranspose", "DepthToSpace", "Pad", "AveragePool", "MaxPool", "Upsample", "Resize", "Gemm"]
-FORCE_CHANNEL_FIRST_OP = ["Reshape", "Transpose", "ScatterND"]
+FORCE_CHANNEL_FIRST_OP = ["Reshape", "Transpose", "ScatterND", "MatMul"]
 
