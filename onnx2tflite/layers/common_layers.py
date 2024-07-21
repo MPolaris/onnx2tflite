@@ -120,17 +120,18 @@ class TFAveragePool():
         input_shape = tensor_grap[node_inputs[0]].shape
         for i in range(len(input_shape)-2):
             pad_shape = pads[i] + pads[i+2]
-            output_shape_raw = (input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1
-            if func(output_shape_raw) != input_shape[1+i]:
+            onnx_output_shape = func((input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1)
+            tf_output_shape = math.floor((input_shape[1+i] - kernel_shape[i]) / strides[i]) + 1
+            pads[2+i] = max(onnx_output_shape-tf_output_shape, pads[2+i]) # right_down pad
+            if pad_mode == "SAME" and onnx_output_shape != input_shape[1+i]:
                 pad_mode = "VALID"
-                break
-        
-        self.avg_pool = keras.layers.AveragePooling2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
+        self.max_pool = keras.layers.MaxPool2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
         
         self.pad = None
         if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
-            self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
-
+            if np.sum(pads) > 0:
+                self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
+            
         self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
         layout_dict[node_outputs[0]] = Layout.Channel_Last
 
@@ -157,17 +158,18 @@ class TFMaxPool():
         input_shape = tensor_grap[node_inputs[0]].shape
         for i in range(len(input_shape)-2):
             pad_shape = pads[i] + pads[i+2]
-            output_shape_raw = (input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1
-            if func(output_shape_raw) != input_shape[1+i]:
+            onnx_output_shape = func((input_shape[1+i]+pad_shape-((kernel_shape[i]-1)*dilations[i]+1))/strides[i]+1)
+            tf_output_shape = math.floor((input_shape[1+i] - kernel_shape[i]) / strides[i]) + 1
+            pads[2+i] = max(onnx_output_shape-tf_output_shape, pads[2+i]) # right_down pad
+            if pad_mode == "SAME" and onnx_output_shape != input_shape[1+i]:
                 pad_mode = "VALID"
-                break
-
         self.max_pool = keras.layers.MaxPool2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
         
         self.pad = None
         if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
-            self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
-
+            if np.sum(pads) > 0:
+                self.pad = keras.layers.ZeroPadding2D(padding=((pads[0], pads[2]), (pads[1], pads[3])))
+            
         self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
         layout_dict[node_outputs[0]] = Layout.Channel_Last
 
