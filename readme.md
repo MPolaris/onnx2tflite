@@ -2,34 +2,49 @@
 ## Welcome
 If you have some good ideas, welcome to discuss or give project PRs.
 
-## How to use
+## How to install
 ```cmd
-pip install -r requirements.txt
+git clone https://github.com/MPolaris/onnx2tflite.git
+cd onnx2tflite
+python setup.py install
 ```
+## How to use
 ```python
+from onnx2tflite import onnx_converter
+res = onnx_converter(
+        onnx_model_path = "./model.onnx",
+        need_simplify = True,
+        output_path = "./models/",
+        target_formats = ['tflite'],
+    )
+```
+---
+```cmd
 # base
-python converter.py --weights "./your_model.onnx"
+python -m onnx2tflite --weights "./your_model.onnx"
 
 # give save path
-python converter.py --weights "./your_model.onnx" --outpath "./save_path"
+python -m onnx2tflite --weights "./your_model.onnx" --outpath "./save_path"
 
 # save tflite model
-python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite"
+python -m onnx2tflite --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite"
 
 # save keras and tflite model
-python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" "keras"
+python -m onnx2tflite --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" "keras"
 
 # cutoff model, redefine inputs and outputs, support middle layers
-python converter.py --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" --input-node-names "layer_inputname" --output-node-names "layer_outname1" "layer_outname2"
+python -m onnx2tflite --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" --input-node-names "layer_inputname" --output-node-names "layer_outname1" "layer_outname2"
 
 # quantify model weight, only weight
-python converter.py --weights "./your_model.onnx" --formats "tflite" --weigthquant
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --weigthquant
 
 # quantify model weight, include input and output
+## fp16
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --fp16
 ## recommend
-python converter.py --weights "./your_model.onnx" --formats "tflite" --int8 --imgroot "./dataset_path" --int8mean 0 0 0 --int8std 255 255 255
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --int8 --imgroot "./dataset_path" --int8mean 0 0 0 --int8std 255 255 255
 ## generate random data, instead of read from image file
-python converter.py --weights "./your_model.onnx" --formats "tflite" --int8
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --int8
 ```
 ---
 ## Features
@@ -58,6 +73,7 @@ onnx_converter(
     output_path = "./",
     target_formats = ['tflite'], # or ['keras'], ['keras', 'tflite']
     weight_quant = False,
+    fp16_model=False,
     int8_model = False,
     int8_mean = None,
     int8_std = None,
@@ -113,6 +129,8 @@ onnx_converter(
 - [YOLOV10](https://github.com/THU-MIG/yolov10)
 - [MoveNet](https://github.com/fire717/movenet.pytorch)
 - [UNet\FPN](https://github.com/bigmb/Unet-Segmentation-Pytorch-Nest-of-Unets)
+- ViT(torchvision)
+- [SwinTransformerV1](https://github.com/microsoft/Swin-Transformer)
 - MLP(custom)
 - DCGAN(custom)
 - [AutoEncoder/VAE](https://github.com/AntixK/PyTorch-VAE)
@@ -123,19 +141,21 @@ onnx_converter(
 ## Add operator by yourself
 When you counter unspported operator, you can choose to add it by yourself or make an issue.<br/>
 It's very simple to implement a new operator parser by following these steps below.<br/>
-Step 0: Select a corresponding layer code file in [layers folder](./layers/), such as activations_layers.py for 'HardSigmoid'.<br/>
+Step 0: Select a corresponding layer code file in [layers folder](./onnx2tflite/layers/), such as activations_layers.py for 'HardSigmoid'.<br/>
 Step 1: Open it, and edit it:
 ```python
 # all operators regist through OPERATOR register.
 # regist operator's name is onnx operator name. 
 @OPERATOR.register_operator("HardSigmoid")
 class TFHardSigmoid():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs) -> None:
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         '''
         :param tensor_grap: dict, key is node name, value is tensorflow-keras node output tensor.
         :param node_weights: dict, key is node name, value is static data, such as weight/bias/constant, weight should be transfom by dimension_utils.tensor_NCD_to_NDC_format at most time.
         :param node_inputs: List[str], stored node input names, indicates which nodes the input comes from, tensor_grap and node_weights are possible.
         :param node_attribute: dict, key is attribute name, such as 'axis' or 'perm'. value type is indeterminate, such as List[int] or int or float. notice that type of 'axis' value should be adjusted form NCHW to NHWC by dimension_utils.channel_to_last_dimension or dimension_utils.shape_NCD_to_NDC_format.
+        :param node_inputs: List[str], stored node output names.
+        :param layout_dict: List[Layout], stored all before node's layout.
         '''
         super().__init__()
         self.alpha = node_attribute.get("alpha", 0.2)
@@ -146,20 +166,20 @@ class TFHardSigmoid():
 ```
 Step 2: Make it work without error.<br/>
 Step 3: Convert model to tflite without any quantification.<br/>
-## TODO
-- [ ] support Transofomer, VIT\Swin Trasnformer etc...
-- [x] support cutoff onnx model and specify output layer
-- [x] optimize comfirm_acc.py(removed, The output checker will run automatically.)
 
 ---
 ## Limitation
 - The number of operators can not cover all models.
 - Friendly to 1D/2D vision CNN, and not support 3D CNN.
-- Bad support for some math or channel change operators(such as Squeeze\MatMul).
+- Model accuracy check may not be accurate.
 ---
-
+## TODO
+- [x] support Transofomer, VIT\Swin Trasnformer etc...
+- [x] support cutoff onnx model and specify output layer
+- [x] optimize comfirm_acc.py(removed, The output checker will run automatically.)
+---
 ## Emmmmmmm
-It's too disgusting for first(batch) or second(channel) axis change. There are always circumstances that have not been taken into account.
+Finally, I did.
 
 # License
 This software is covered by Apache-2.0 license.
