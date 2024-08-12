@@ -2,13 +2,12 @@
 ## Welcome
 If you have some good ideas, welcome to discuss or give project PRs.
 
-## How to install
+## Install
 ```cmd
 git clone https://github.com/MPolaris/onnx2tflite.git
 cd onnx2tflite
 python setup.py install
 ```
-## How to use
 ```python
 from onnx2tflite import onnx_converter
 res = onnx_converter(
@@ -168,18 +167,6 @@ Step 2: Make it work without error.<br/>
 Step 3: Convert model to tflite without any quantification.<br/>
 
 ---
-## Limitation
-- The number of operators can not cover all models.
-- Friendly to 1D/2D vision CNN, and not support 3D CNN.
-- Model accuracy check may not be accurate.
----
-## TODO
-- [x] support Transofomer, VIT\Swin Trasnformer etc...
-- [x] support cutoff onnx model and specify output layer
-- [x] optimize comfirm_acc.py(removed, The output checker will run automatically.)
----
-## Emmmmmmm
-Finally, I did.
 
 # License
 This software is covered by Apache-2.0 license.
