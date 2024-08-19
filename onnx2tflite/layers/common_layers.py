@@ -125,7 +125,7 @@ class TFAveragePool():
             pads[2+i] = max(onnx_output_shape-tf_output_shape, pads[2+i]) # right_down pad
             if pad_mode == "SAME" and onnx_output_shape != input_shape[1+i]:
                 pad_mode = "VALID"
-        self.max_pool = keras.layers.MaxPool2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
+        self.avg_pool = keras.layers.AveragePooling2D(pool_size=kernel_shape, strides=strides, padding=pad_mode)
         
         self.pad = None
         if pad_mode == "VALID" and pads is not None and np.sum(pads) > 0:
