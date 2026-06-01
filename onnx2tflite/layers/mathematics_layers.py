@@ -193,16 +193,25 @@ class TFLog():
         super().__init__()
 
     def __call__(self, inputs, *args, **kwargs):
-        return tf.log(inputs)
+        return tf.math.log(inputs)
 
 class ReduceBase:
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         self.keep_dims = node_attribute.get("keepdims", 1) == 1
+        # Opset 13+: axes may be passed as an input tensor instead of attribute
+        if len(node_inputs) > 1 and node_inputs[1] in node_weights:
+            raw_axes = node_weights[node_inputs[1]]
+            if hasattr(raw_axes, 'tolist'):
+                raw_axes = raw_axes.tolist()
+            if not isinstance(raw_axes, list):
+                raw_axes = [raw_axes]
+        else:
+            raw_axes = node_attribute.get("axes", [-1])
         input_shape_len = len(tensor_grap[node_inputs[0]].shape)
         if layout_dict[node_inputs[0]] == Layout.Channel_Last:
-            self.axes = [dimension_utils.channel_to_last_dimension(i) if i >=0 else dimension_utils.channel_to_last_dimension(input_shape_len + i) for i in node_attribute.get("axes", [-1])]
+            self.axes = [dimension_utils.channel_to_last_dimension(i) if i >=0 else dimension_utils.channel_to_last_dimension(input_shape_len + i) for i in raw_axes]
         else:
-            self.axes = [i if i >=0 else input_shape_len + i for i in node_attribute.get("axes", [-1])]
+            self.axes = [i if i >=0 else input_shape_len + i for i in raw_axes]
 
 @OPERATOR.register_operator("ReduceSum")
 class TFReduceSum(ReduceBase):

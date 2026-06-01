@@ -208,18 +208,16 @@ class TFGatherElements():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         self.axis = node_attribute.get("axis", 1)
-        self.indices = None
         if 'indices' in node_attribute:
             self.indices = node_attribute['indices']
-            self.indices = dimension_utils.tensor_NCD_to_NDC_format(self.indices)
         elif node_inputs[1] in node_weights:
             self.indices = node_weights[node_inputs[1]]
-            self.indices = dimension_utils.tensor_NCD_to_NDC_format(self.indices)
         else:
             self.indices = tensor_grap[node_inputs[1]]
         if layout_dict[node_inputs[0]] == Layout.Channel_Last:
             self.axis = dimension_utils.channel_to_last_dimension(self.axis)
-            if len(node_inputs) == 1 or layout_dict[node_inputs[1]] != Layout.Channel_Last:
+            # Convert NCD-format indices to NDC to match NHWC input
+            if isinstance(self.indices, np.ndarray) and self.indices.ndim > 2:
                 self.indices = dimension_utils.tensor_NCD_to_NDC_format(self.indices)
 
     def gather_elements(self, input_tensor, indices, axis):

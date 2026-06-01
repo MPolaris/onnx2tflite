@@ -10,3 +10,5 @@ onnx2tflite.egg-info/
 build/
 dist/
 main.py
+
+asserts/

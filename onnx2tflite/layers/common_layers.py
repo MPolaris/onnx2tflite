@@ -11,12 +11,14 @@ LOG = logging.getLogger("common_layers :")
 
 @OPERATOR.register_operator("BatchNormalization")
 class TFBatchNormalization():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, *args, **kwargs):
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
         epsilon = node_attribute.get("epsilon", 1e-5)
         momentum = node_attribute.get("momentum", 0.9)
+        channel_last = layout_dict.get(node_inputs[0], Layout.Default) == Layout.Channel_Last
 
         self.bn = keras.layers.BatchNormalization(
+            axis=-1 if channel_last else 1,
             gamma_initializer=keras.initializers.Constant(node_weights[node_inputs[1]]),
             beta_initializer=keras.initializers.Constant(node_weights[node_inputs[2]]),
             moving_mean_initializer=keras.initializers.Constant(node_weights[node_inputs[3]]),
@@ -39,8 +41,18 @@ class TFInstanceNormalization():
     def __call__(self, inputs):
         axes = tuple(range(1, len(inputs.shape)-1)) if self.channel_last else tuple(range(2, len(inputs.shape)))
         mean = tf.reduce_mean(inputs, axis=axes, keepdims=True)
-        var = tf.math.reduce_variance(inputs, axis= axes, keepdims=True)
-        return self.scale*(inputs - mean)/tf.sqrt(var + self.epsilon) + self.bias
+        var = tf.reduce_mean(tf.square(inputs - mean), axis=axes, keepdims=True)
+        # Reshape scale/bias for proper broadcasting
+        ndim = len(inputs.shape)
+        if self.channel_last:
+            # NHWC: (C,) → (1, 1, 1, C)
+            reshape_target = [1] * (ndim - 1) + [-1]
+        else:
+            # NCHW: (C,) → (1, C, 1, 1)
+            reshape_target = [1, -1] + [1] * (ndim - 2)
+        scale = tf.reshape(self.scale, reshape_target)
+        bias = tf.reshape(self.bias, reshape_target)
+        return scale * (inputs - mean) / tf.sqrt(var + self.epsilon) + bias
 
 @OPERATOR.register_operator("Pad")
 class TFPad():
@@ -80,7 +92,7 @@ class TFClip():
             return tf.nn.relu6(inputs)
         return tf.clip_by_value(inputs, self.min, self.max)
 
-@OPERATOR.register_operator("TFGlobalMaxPool")
+@OPERATOR.register_operator("GlobalMaxPool")
 class TFGlobalMaxPool():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
@@ -184,7 +196,11 @@ class TFMaxPool():
 class TFUpsample():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
-        _, h, w, _ = tensor_grap[node_inputs[0]].shape
+        input_shape = tensor_grap[node_inputs[0]].shape
+        if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+            _, h, w, _ = input_shape
+        else:
+            _, _, h, w = input_shape
         scale = node_weights[node_inputs[1]]
 
         self.scale = (int(h*scale[2]), int(w*scale[3]))
@@ -235,15 +251,28 @@ class TFScatterND():
 class TFResize():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
-        if node_inputs[-1] in node_weights:
+        # Try to use 'sizes' input (node_inputs[-1]) if available and non-empty
+        if node_inputs[-1] in node_weights and len(node_weights[node_inputs[-1]]) == 4:
             _, _, nh, nw = node_weights[node_inputs[-1]]
             if len(node_inputs) != 4:
-                _, h, w, _ = tensor_grap[node_inputs[0]].shape
+                shape = tensor_grap[node_inputs[0]].shape
+                if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+                    _, h, w, _ = shape
+                else:
+                    _, _, h, w = shape
                 nh, nw = int(h*nh), int(w*nw)
             self.scale = (nh, nw)
+        elif node_inputs[2] in node_weights and len(node_weights[node_inputs[2]]) == 4:
+            # Use 'scales' input
+            scales = node_weights[node_inputs[2]]
+            shape = tensor_grap[node_inputs[0]].shape
+            if layout_dict[node_inputs[0]] == Layout.Channel_Last:
+                _, h, w, _ = shape
+            else:
+                _, _, h, w = shape
+            self.scale = (int(h*scales[2]), int(w*scales[3]))
         else:
-            scales = tensor_grap[node_inputs[0]].shape[1:3]*tensor_grap[node_inputs[2]][2:3]
-            self.scale = scales
+            raise ValueError("Resize: unable to determine output size from inputs")
 
         if node_attribute.get("mode", "nearest").lower() == 'nearest':
             self.method = tf.image.ResizeMethod.NEAREST_NEIGHBOR
@@ -263,14 +292,14 @@ class TFGemm():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
         super().__init__()
         if len(node_inputs) > 2:
-            weights = [node_weights[node_inputs[1]].T, node_weights[node_inputs[2]]]
+            weights = [node_weights[node_inputs[1]], node_weights[node_inputs[2]]]
         else:
-            weights = [node_weights[node_inputs[1]].T]
+            weights = [node_weights[node_inputs[1]]]
 
         self.dense = keras.layers.Dense(weights[0].shape[1],
                                         weights=weights,
                                         use_bias=len(weights)==2)
-        
+
         self.channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
         layout_dict[node_outputs[0]] = Layout.Channel_Last
 

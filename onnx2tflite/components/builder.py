@@ -47,8 +47,12 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
             _inputs = tf_tensor[node_inputs[0]] if node_inputs[0] in tf_tensor else onnx_weights[node_inputs[0]]
 
         # init layout
-        for index in range(len(node_outputs)):
-            layout_dict[node_outputs[index]] = layout_dict.get(node_inputs[0], Layout.Default)
+        if len(node_inputs) > 0:
+            for index in range(len(node_outputs)):
+                layout_dict[node_outputs[index]] = layout_dict.get(node_inputs[0], Layout.Default)
+        else:
+            for index in range(len(node_outputs)):
+                layout_dict[node_outputs[index]] = Layout.Default
         
         res = tf_operator(tf_tensor, onnx_weights, node_inputs, op_attr, node_outputs, layout_dict)(_inputs)
         if isinstance(res, list):

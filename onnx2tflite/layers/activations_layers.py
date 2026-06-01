@@ -69,12 +69,18 @@ class TFPRelu():
         input_tensor_shape = tensor_grap[node_inputs[0]].shape
         channel_last = layout_dict[node_inputs[0]] == Layout.Channel_Last
         if isinstance(self.slope, np.ndarray):
-            while self.slope.ndim < input_tensor_shape.ndims:
-                self.slope = self.slope[np.newaxis, :]
+            target_ndim = input_tensor_shape.ndims
             if channel_last:
-                self.slope = tensor_NCD_to_NDC_format(self.slope)
+                # NHWC: slope (C,) → (1, 1, 1, C) → [0] → (1, 1, C)
+                while self.slope.ndim < target_ndim:
+                    self.slope = self.slope[np.newaxis, :]
+            else:
+                # NCHW: slope (C,) → (1, C, 1, 1) → [0] → (C, 1, 1)
+                self.slope = self.slope[np.newaxis, :]  # add batch: (1, C)
+                while self.slope.ndim < target_ndim:
+                    self.slope = np.expand_dims(self.slope, axis=-1)  # spatial dims at end
             if self.slope.ndim > 1:
-                # remove batchsize
+                # remove batch dim
                 self.slope = self.slope[0]
         axes = [i for i in range(1, input_tensor_shape.ndims-1)] if channel_last else [i for i in range(2, input_tensor_shape.ndims)]
         self.PRelu = tf.keras.layers.PReLU(weights=[self.slope], shared_axes = axes)
@@ -182,4 +188,4 @@ class TFCelu():
         self.alpha = node_attribute.get("alpha", 1.0)
 
     def __call__(self, inputs):
-        return tf.maximum(inputs, 0) + tf.minimum(0, self.alpha*(tf.exp(inputs/self.alpha)-1))
+        return tf.maximum(inputs, 0.0) + tf.minimum(0.0, self.alpha*(tf.exp(inputs/self.alpha)-1.0))
