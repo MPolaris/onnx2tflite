@@ -1,72 +1,53 @@
 import os
-import cv2
 import logging
 import numpy as np
 
-LOG = logging.getLogger("Quantization DataLoder :")
+LOG = logging.getLogger("Quantization Dataloader:")
 
-class RandomLoader(object):
-    def __init__(self, target_size):
-        self.target_size = target_size
-        LOG.warning(f"Generate quantization data from random, it's will lead to accuracy problem!")
-    
+
+class RandomLoader:
+    """Generate random calibration data (low accuracy, for quick testing only)."""
+    def __init__(self, input_shapes: list):
+        self.shapes = input_shapes
+        LOG.warning("Using random calibration data — accuracy will be degraded!")
+
     def __iter__(self):
-        self.index = 0
+        self._i = 0
         return self
 
     def __next__(self):
-        if self.index > 5:
+        if self._i > 50:
             raise StopIteration()
-        self.index += 1
-        return [np.random.randn(*self.target_size).astype(np.float32)]
-    
-class ImageLoader(object):
-    '''
-        generate data for quantization from image datas.
-        img_quan_data = (img - mean)/std, it's important for accuracy of model.
-    '''
-    VALID_FORMAT = ['.jpg', '.png', '.jpeg']
-    
-    def __init__(self, img_root, target_size, mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375]) -> None:
-        assert os.path.exists(img_root), F"{img_root} is not exists, please check!"
-        self.fns = os.listdir(img_root)
-        self.fns = list(filter(lambda fn: os.path.splitext(fn)[-1].lower() in self.VALID_FORMAT, self.fns))
-        self.nums = len(self.fns)
-        assert self.nums > 0, f"No images detected in {img_root}."
-        if self.nums > 100:
-            LOG.warning(f"{self.nums} images detected, the number of recommended images is less than 100.")
-        else:
-            LOG.info(f"{self.nums} images detected.")
-        self.fns = [os.path.join(img_root, fn) for fn in self.fns]
+        self._i += 1
+        return [np.random.randn(*s).astype(np.float32) for s in self.shapes]
 
-        self.batch, self.size = target_size[0], target_size[1:-1]
-        if isinstance(mean, list):
-            mean = np.array(mean, dtype=np.float32)
-        if isinstance(std, list):
-            std = np.array(std, dtype=np.float32)
-        self.mean, self.std = mean, std
+
+class NpyLoader:
+    """Load preprocessed calibration data from .npy files.
+
+    Each .npy file should contain a batch of representative input data.
+    Multiple files can be provided for multiple model inputs.
+    """
+    def __init__(self, npy_paths: list[str], input_shapes: list):
+        assert len(npy_paths) == len(input_shapes), \
+            f"Expected {len(input_shapes)} .npy files (one per model input), got {len(npy_paths)}"
+        self.data = []
+        for path, shape in zip(npy_paths, input_shapes):
+            assert os.path.exists(path), f"Calibration file not found: {path}"
+            arr = np.load(path)
+            assert arr.shape[1:] == tuple(shape[1:]), \
+                f"Shape mismatch in {path}: data has {arr.shape[1:]}, model expects {shape[1:]}"
+            self.data.append(arr)
+        self._num_samples = min(len(d) for d in self.data)
+        LOG.info(f"{self._num_samples} calibration samples loaded from {len(npy_paths)} .npy file(s)")
 
     def __iter__(self):
-        self.index = 0
+        self._i = 0
         return self
 
     def __next__(self):
-        if self.index >= self.nums:
+        if self._i >= self._num_samples:
             raise StopIteration()
-    
-        _input = cv2.imread(self.fns[self.index])
-        _input = cv2.resize(_input, self.size)[:, :, ::-1]#BGR->RGB
-        _input = _input.astype(np.float32)
-
-        if self.mean is not None:
-            _input = (_input - self.mean)
-        if self.std is not None:
-            _input = _input/self.std
-
-        _input = np.expand_dims(_input, axis=0)
-        if self.batch > 1:
-            _input = np.repeat(_input, self.batch, axis=0).astype(np.float32)
-        
-        self.index += 1
-        return [_input]
-    
+        batch = [d[self._i:self._i + 1].astype(np.float32) for d in self.data]
+        self._i += 1
+        return batch

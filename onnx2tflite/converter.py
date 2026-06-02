@@ -22,14 +22,14 @@ def _resolve_output_path(onnx_model_path: str, output_path: str = None,
 
 def _convert_keras(model_proto, onnx_model_path, output_path,
                    native_groupconv, weight_quant, fp16_model, int8_model,
-                   image_root, int8_mean, int8_std, target_formats):
+                   calibration_data, target_formats):
     """ONNX → Keras → TFLite (original two-stage path)."""
     keras_model, input_layout, output_layout = keras_builder(model_proto, native_groupconv)
 
     tflite_bytes = None
     if 'tflite' in target_formats:
         tflite_bytes = tflite_builder(keras_model, weight_quant, fp16_model,
-                                      int8_model, image_root, int8_mean, int8_std)
+                                      int8_model, calibration_data)
 
     out_base = _resolve_output_path(onnx_model_path, output_path, fp16_model, int8_model)
 
@@ -100,14 +100,15 @@ def onnx_converter(onnx_model_path: str, output_path: str = None,
                    native_groupconv: bool = False,
                    use_direct_ir: bool = False,
                    weight_quant: bool = False, fp16_model: bool = False,
-                   int8_model: bool = False, image_root: str = None,
-                   int8_mean=(123.675, 116.28, 103.53),
-                   int8_std=(58.395, 57.12, 57.375)) -> dict:
+                   int8_model: bool = False, calibration_data: list = None) -> dict:
     """Convert ONNX model to TFLite (and optionally Keras .h5).
 
     Two backends available:
       - use_direct_ir=False (default): ONNX → Keras Model → TFLite
       - use_direct_ir=True:            ONNX → TFLite FlatBuffer (bypasses Keras)
+
+    For INT8 quantization, use calibration_data (list of .npy file paths,
+    one per model input). Data should already be preprocessed before saving.
 
     Returns dict with keys: tflite (file path), tflite_error (max element error),
     and for Keras path: keras (file path), keras_error.
@@ -120,5 +121,4 @@ def onnx_converter(onnx_model_path: str, output_path: str = None,
 
     return _convert_keras(model_proto, onnx_model_path, output_path,
                           native_groupconv, weight_quant, fp16_model,
-                          int8_model, image_root, int8_mean, int8_std,
-                          target_formats)
+                          int8_model, calibration_data, target_formats)
