@@ -93,14 +93,22 @@ def _matmul(builder, node):
 
 @_register("Gemm")
 def _gemm(builder, node):
+    # FULLY_CONNECTED expects filter (OutputUnits, InputUnits)
+    # Re-register weight transposed
     from tensorflow.lite.python.schema_py_generated import FullyConnectedOptionsT
-    inputs = _get_inputs(builder, node)
-    out_features = builder._tensors[inputs[1]].shape[0]  # weight shape[0] = output dim
-    # FullyConnected expects weights in shape [out_features, in_features]
+    w_data = builder.onnx_weights[node.input[1]]  # ONNX: (K, N) = (4, 8)
+    w_t = w_data.T  # (8, 4)
+    w_idx = builder.register_weight(f"{node.output[0]}_fc_w", w_t.astype(np.float32))
+    inputs = [builder._tensor_map[node.input[0]], w_idx]
+    if len(node.input) > 2:
+        b_idx = builder.register_weight(f"{node.output[0]}_fc_b",
+                                         builder.onnx_weights[node.input[2]].astype(np.float32))
+        inputs.append(b_idx)
+    out_features = w_t.shape[0]
     out_shape = [builder._tensors[inputs[0]].shape[0], out_features]
     opt = FullyConnectedOptionsT()
     opt.fusedActivationFunction = 0
-    opt.weightsFormat = 0  # DEFAULT
+    opt.weightsFormat = 0
     out = builder.register_tensor(node.output[0], out_shape)
     builder.add_op(Op.FULLY_CONNECTED, inputs, [out], opt)
     builder.set_layout(out, Layout.Channel_None)

@@ -27,10 +27,11 @@ def build_tflite_ir(model_proto) -> bytes:
     builder = TFLiteBuilder(model_proto)
 
     for node in model_proto.graph.node:
-        outputs = dispatch(builder, node)
-        # Mark graph outputs
-        for out_name in model_proto.graph.output:
-            if out_name.name in builder._tensor_map:
-                builder.mark_output(builder._tensor_map[out_name.name])
+        dispatch(builder, node)
+
+    # Mark graph outputs (after all nodes processed)
+    for out_info in model_proto.graph.output:
+        if out_info.name in builder._tensor_map:
+            builder.mark_output(builder._tensor_map[out_info.name])
 
     return builder.build()

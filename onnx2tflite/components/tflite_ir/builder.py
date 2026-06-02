@@ -127,15 +127,24 @@ class TFLiteBuilder:
         return idx
 
     def add_op(self, builtin_code: int, inputs: list[int], outputs: list[int],
-               options=None, custom_code: str = None):
-        """Add an operator to the subgraph. Returns output tensor indices."""
+               options=None):
+        """Add a builtin operator to the subgraph. Returns output tensor indices."""
         op = schema.OperatorT()
-        op.opcodeIndex = self._get_opcode_index(builtin_code, custom_code)
+        op.opcodeIndex = self._get_opcode_index(builtin_code)
         op.inputs = [int(i) for i in inputs]
         op.outputs = [int(o) for o in outputs]
         if options is not None:
             op.builtinOptionsType = _OPTIONS_TYPE_MAP.get(type(options), 0)
             op.builtinOptions = options
+        self._operators.append(op)
+        return outputs
+
+    def add_custom_op(self, custom_code: str, inputs: list[int], outputs: list[int]):
+        """Add a custom/flex operator (e.g., 'FlexErf')."""
+        op = schema.OperatorT()
+        op.opcodeIndex = self._get_custom_opcode_index(custom_code)
+        op.inputs = [int(i) for i in inputs]
+        op.outputs = [int(o) for o in outputs]
         self._operators.append(op)
         return outputs
 
@@ -233,23 +242,33 @@ class TFLiteBuilder:
 
     # ---- Internal ----
 
-    def _get_opcode_index(self, builtin_code: int, custom_code: str = None) -> int:
-        """Get or create an OperatorCode entry."""
+    def _get_opcode_index(self, builtin_code: int) -> int:
+        """Get or create a builtin OperatorCode entry."""
         if builtin_code in self._opcode_map:
             return self._opcode_map[builtin_code]
 
         oc = schema.OperatorCodeT()
-        if custom_code:
-            oc.deprecatedBuiltinCode = schema.BuiltinOperator.CUSTOM
-            oc.customCode = custom_code
-        else:
-            oc.builtinCode = builtin_code
-            oc.deprecatedBuiltinCode = builtin_code
+        oc.builtinCode = builtin_code
+        oc.deprecatedBuiltinCode = builtin_code
         oc.version = 1
-
         idx = len(self._operator_codes)
         self._operator_codes.append(oc)
         self._opcode_map[builtin_code] = idx
+        return idx
+
+    def _get_custom_opcode_index(self, custom_code: str) -> int:
+        """Get or create a custom OperatorCode entry."""
+        key = f"custom_{custom_code}"
+        if key in self._opcode_map:
+            return self._opcode_map[key]
+
+        oc = schema.OperatorCodeT()
+        oc.deprecatedBuiltinCode = schema.BuiltinOperator.CUSTOM
+        oc.customCode = custom_code
+        oc.version = 1
+        idx = len(self._operator_codes)
+        self._operator_codes.append(oc)
+        self._opcode_map[key] = idx
         return idx
 
     def _build_inputs(self):
@@ -309,6 +328,7 @@ _OPTIONS_TYPE_MAP = {
     schema.ExpOptionsT: 33,
     schema.TopKV2OptionsT: 34,
     schema.SplitOptionsT: 35,
+    schema.SplitVOptionsT: 79,
     schema.LogSoftmaxOptionsT: 36,
     schema.CastOptionsT: 37,
     schema.DequantizeOptionsT: 38,
@@ -367,7 +387,7 @@ _OPTIONS_TYPE_MAP = {
     schema.HardSwishOptionsT: 92,
     schema.IfOptionsT: 93,
     schema.WhileOptionsT: 94,
-    schema.DepthToSpaceOptionsT: 95,
+    schema.DepthToSpaceOptionsT: 94,
     schema.NonMaxSuppressionV4OptionsT: 96,
     schema.NonMaxSuppressionV5OptionsT: 97,
     schema.ScatterNdOptionsT: 98,

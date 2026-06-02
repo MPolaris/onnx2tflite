@@ -79,23 +79,27 @@ def _reduce_min(builder, node):
 
 @_register("ArgMax")
 def _argmax(builder, node):
+    import numpy as np
     attrs = _reduce_attrs(node)
     x_idx = builder._tensor_map[node.input[0]]
     axis = attrs["axes"][0] if isinstance(attrs["axes"], list) else attrs["axes"]
+    axis_idx = builder.register_weight(f"{node.output[0]}_axis", np.array([axis], dtype=np.int32))
     opt = ArgMaxOptionsT()
     opt.outputType = 4  # INT64
     out = builder.register_tensor(node.output[0], builder._tensors[x_idx].shape, dtype=4)
-    builder.add_op(Op.ARG_MAX, [x_idx], [out], opt)
+    builder.add_op(Op.ARG_MAX, [x_idx, axis_idx], [out], opt)
     return [out]
 
 
 @_register("ArgMin")
 def _argmin(builder, node):
+    import numpy as np
     attrs = _reduce_attrs(node)
     x_idx = builder._tensor_map[node.input[0]]
     axis = attrs["axes"][0] if isinstance(attrs["axes"], list) else attrs["axes"]
+    axis_idx = builder.register_weight(f"{node.output[0]}_axis", np.array([axis], dtype=np.int32))
     opt = ArgMinOptionsT()
     opt.outputType = 4  # INT64
     out = builder.register_tensor(node.output[0], builder._tensors[x_idx].shape, dtype=4)
-    builder.add_op(Op.ARG_MIN, [x_idx], [out], opt)
+    builder.add_op(Op.ARG_MIN, [x_idx, axis_idx], [out], opt)
     return [out]

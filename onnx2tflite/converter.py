@@ -92,7 +92,7 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
             LOG.info(f"tflite model (direct IR) max error: {max_error:.4E}")
             return {"tflite": tflite_model_path, "tflite_error": max_error}
         except Exception as e:
-            LOG.warning(f"direct IR error check failed: {e}")
+            LOG.warning(f"direct IR error check failed: {type(e).__name__}: {e}")
             return {"tflite": tflite_model_path, "tflite_error": None}
 
     keras_model, input_layout, output_layout = keras_builder(model_proto, native_groupconv)

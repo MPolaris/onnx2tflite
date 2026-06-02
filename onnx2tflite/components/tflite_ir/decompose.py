@@ -1,5 +1,6 @@
 """Decomposed operators — ONNX ops without direct TFLite builtin counterparts."""
 import numpy as np
+from tensorflow.lite.python import schema_py_generated as schema
 from tensorflow.lite.python.schema_py_generated import (
     BuiltinOperator as Op,
     AddOptionsT,
@@ -181,13 +182,51 @@ def _softsign(builder, node):
 
 @_register("Selu")
 def _selu(builder, node):
-    """SELU not natively supported; raise."""
-    raise NotImplementedError("SELU requires custom decompose — not yet implemented")
+    """Keras decomposition (5 ops):
+    SELU(x) = SELECT(x > 0, lambda * x, lambda * (exp(x) - alpha))
+    where lambda=1.050700987, alpha=1.673263242 (ONNX defaults)"""
+    attrs = {}
+    for attr in node.attribute:
+        if attr.name == "alpha": attrs["alpha"] = attr.f
+        elif attr.name == "gamma": attrs["gamma"] = attr.f
+    alpha_val = attrs.get("alpha", 1.673263242)
+    gamma_val = attrs.get("gamma", 1.050700987)
+
+    x_idx = builder._tensor_map[node.input[0]]
+    shape = builder._tensors[x_idx].shape
+    layout = builder.get_layout(x_idx)
+
+    alpha = builder.register_weight(f"{node.output[0]}_alpha", np.float32(alpha_val))
+    lmbda = builder.register_weight(f"{node.output[0]}_lambda", np.float32(gamma_val))
+    zero = builder.register_weight(f"{node.output[0]}_zero", np.float32(0.0))
+
+    # mask = x > 0
+    mask = builder.register_tensor(f"{node.output[0]}_mask", shape, dtype=9)  # BOOL
+    builder.add_op(Op.GREATER, [x_idx, zero], [mask])
+
+    # positive branch: lambda * x
+    pos = builder.register_tensor(f"{node.output[0]}_pos", shape)
+    builder.add_op(Op.MUL, [x_idx, lmbda], [pos], MulOptionsT())
+
+    # negative branch: lambda * (exp(x) - alpha)
+    exp_out = builder.register_tensor(f"{node.output[0]}_exp", shape)
+    builder.add_op(Op.EXP, [x_idx], [exp_out])
+    sub_out = builder.register_tensor(f"{node.output[0]}_sub", shape)
+    builder.add_op(Op.SUB, [exp_out, alpha], [sub_out], SubOptionsT())
+    neg = builder.register_tensor(f"{node.output[0]}_neg", shape)
+    builder.add_op(Op.MUL, [sub_out, lmbda], [neg], MulOptionsT())
+
+    # SELECT(mask, pos, neg)
+    out = builder.register_tensor(node.output[0], shape)
+    builder.add_op(Op.SELECT, [mask, pos, neg], [out])
+    builder.set_layout(out, layout)
+    return [out]
 
 
 @_register("Erf")
 def _erf(builder, node):
-    """ERF not natively supported in TFLite; raise."""
+    """Erf has no native TFLite op. Flex op ('FlexErf') requires SELECT_TF_OPS
+    delegate which is not available in the default interpreter."""
     raise NotImplementedError("Erf not supported in TFLite — no builtin op available")
 
 

@@ -83,11 +83,12 @@ def _instance_norm(builder, node):
     eps_idx = builder.register_weight(f"{node.output[0]}_eps", np.array([eps], dtype=np.float32).reshape([1] * len(shape)))
 
     from tensorflow.lite.python.schema_py_generated import ReducerOptionsT, SubOptionsT, DivOptionsT, MulOptionsT
-    # mean
+    # mean (TFLite MEAN needs axes as 2nd input)
+    axes_idx_hw = builder.register_weight(f"{node.output[0]}_axes_hw", np.array([1, 2], dtype=np.int32))
     ropt = ReducerOptionsT()
     ropt.keepDims = True
     mean_out = builder.register_tensor(f"{node.output[0]}_mean", shape)
-    builder.add_op(Op.MEAN, [x_idx], [mean_out], ropt)
+    builder.add_op(Op.MEAN, [x_idx, axes_idx_hw], [mean_out], ropt)
 
     # x - mean
     sub_opt = SubOptionsT()
@@ -100,7 +101,7 @@ def _instance_norm(builder, node):
     builder.add_op(Op.MUL, [diff_out, diff_out], [sq_out],
                    MulOptionsT())
     var_out = builder.register_tensor(f"{node.output[0]}_var", shape)
-    builder.add_op(Op.MEAN, [sq_out], [var_out], ReducerOptionsT())
+    builder.add_op(Op.MEAN, [sq_out, axes_idx_hw], [var_out], ReducerOptionsT())
 
     # var + eps
     add1_out = builder.register_tensor(f"{node.output[0]}_vareps", shape)
