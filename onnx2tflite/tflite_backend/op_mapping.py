@@ -5,7 +5,7 @@ Each handler function takes (builder, node) and returns the list of output tenso
 """
 import numpy as np
 from tensorflow.lite.python.schema_py_generated import BuiltinOperator as Op
-from onnx2tflite.components.tflite_ir.builder import Layout
+from onnx2tflite.tflite_backend.builder import Layout
 
 # ONNX op name → handler function
 _OP_MAP: dict[str, callable] = {}

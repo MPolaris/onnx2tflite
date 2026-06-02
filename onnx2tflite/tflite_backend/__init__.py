@@ -1,15 +1,15 @@
 """TFLite IR direct builder — bypasses Keras for ONNX→TFLite conversion."""
-from onnx2tflite.components.tflite_ir.builder import TFLiteBuilder, Layout
-from onnx2tflite.components.tflite_ir.op_mapping import dispatch
+from onnx2tflite.tflite_backend.builder import TFLiteBuilder, Layout
+from onnx2tflite.tflite_backend.op_mapping import dispatch
 
 # Force-load all handler modules to register operators
-from onnx2tflite.components.tflite_ir import math
-from onnx2tflite.components.tflite_ir import convolution
-from onnx2tflite.components.tflite_ir import pooling
-from onnx2tflite.components.tflite_ir import deformation
-from onnx2tflite.components.tflite_ir import normalization
-from onnx2tflite.components.tflite_ir import reduction
-from onnx2tflite.components.tflite_ir import decompose
+from onnx2tflite.tflite_backend.ops import math
+from onnx2tflite.tflite_backend.ops import convolution
+from onnx2tflite.tflite_backend.ops import pooling
+from onnx2tflite.tflite_backend.ops import deformation
+from onnx2tflite.tflite_backend.ops import normalization
+from onnx2tflite.tflite_backend.ops import reduction
+from onnx2tflite.tflite_backend.ops import decompose
 
 
 def build_tflite_ir(model_proto) -> bytes:

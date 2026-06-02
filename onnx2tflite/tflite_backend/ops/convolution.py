@@ -7,8 +7,8 @@ from tensorflow.lite.python.schema_py_generated import (
     TransposeConvOptionsT,
     ConcatenationOptionsT,
 )
-from onnx2tflite.components.tflite_ir.builder import Layout
-from onnx2tflite.components.tflite_ir.op_mapping import _register
+from onnx2tflite.tflite_backend.builder import Layout
+from onnx2tflite.tflite_backend.op_mapping import _register
 
 
 def _decode_conv_attrs(node):
