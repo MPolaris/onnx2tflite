@@ -5,10 +5,11 @@ from .components import load_onnx_modelproto, keras_builder, tflite_builder, get
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("converter running:")
 
-def onnx_converter(onnx_model_path:str,  output_path:str=None, 
+def onnx_converter(onnx_model_path:str,  output_path:str=None,
                     input_node_names:list=None, output_node_names:list=None,
                     need_simplify:bool=True, target_formats:list = ['keras', 'tflite'],
                     native_groupconv:bool=False,
+                    use_direct_ir:bool=False,
                     weight_quant:bool=False, fp16_model:bool=False, int8_model:bool=False, image_root:str=None,
                     int8_mean:list or float = [123.675, 116.28, 103.53], int8_std:list or float = [58.395, 57.12, 57.375])->float:
     """
@@ -40,6 +41,59 @@ def onnx_converter(onnx_model_path:str,  output_path:str=None,
         raise KeyError("'keras' or 'tflite' should in list")
     
     model_proto = load_onnx_modelproto(onnx_model_path, input_node_names, output_node_names, need_simplify)
+
+    if use_direct_ir:
+        from .components.tflite_ir import build_tflite_ir
+        import numpy as np
+        import onnxruntime as ort
+
+        tflite_model = build_tflite_ir(model_proto)
+
+        onnx_path, model_name = os.path.split(onnx_model_path)
+        if output_path is None:
+            output_path = onnx_path
+        output_path = os.path.join(output_path, model_name.split('.')[0])
+
+        tflite_model_path = output_path + ".tflite"
+        with open(tflite_model_path, "wb") as fp:
+            fp.write(tflite_model)
+        LOG.info(f"tflite model (direct IR) saved in {tflite_model_path}")
+
+        # Error check: ONNX runtime vs TFLite
+        try:
+            import tensorflow as tf
+            onnx_sess = ort.InferenceSession(model_proto.SerializeToString())
+            onnx_inputs = {}
+            for inp in onnx_sess.get_inputs():
+                shape = [d if (isinstance(d, int) and d > 0) else 1 for d in inp.shape]
+                onnx_inputs[inp.name] = np.ones(shape, dtype=np.float32)
+            onnx_outputs = onnx_sess.run([], onnx_inputs)
+
+            tflite_interp = tf.lite.Interpreter(model_content=tflite_model)
+            tflite_interp.allocate_tensors()
+            for detail in tflite_interp.get_input_details():
+                data = np.ones(detail['shape'], dtype=np.float32)
+                tflite_interp.set_tensor(detail['index'], data)
+            tflite_interp.invoke()
+
+            max_error = 0
+            for i, onnx_out in enumerate(onnx_outputs):
+                tflite_out = tflite_interp.get_tensor(
+                    tflite_interp.get_output_details()[min(i, len(tflite_interp.get_output_details()) - 1)]['index'])
+                # Convert TFLite NHWC → NCHW if shapes don't match
+                if onnx_out.shape != tflite_out.shape and tflite_out.ndim >= 3:
+                    # NHWC → NCHW: [0, -1, 1, 2, ..., -2]
+                    perm = [0, tflite_out.ndim - 1] + list(range(1, tflite_out.ndim - 1))
+                    tflite_out = np.transpose(tflite_out, perm)
+                if onnx_out.shape == tflite_out.shape:
+                    err = np.max(np.abs(onnx_out - tflite_out))
+                    max_error = max(max_error, err)
+
+            LOG.info(f"tflite model (direct IR) max error: {max_error:.4E}")
+            return {"tflite": tflite_model_path, "tflite_error": max_error}
+        except Exception as e:
+            LOG.warning(f"direct IR error check failed: {e}")
+            return {"tflite": tflite_model_path, "tflite_error": None}
 
     keras_model, input_layout, output_layout = keras_builder(model_proto, native_groupconv)
 
