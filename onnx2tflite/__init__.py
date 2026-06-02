@@ -1,2 +1,5 @@
-__VERSION__ = "2.1"
+from ._version import __version__
 from .converter import onnx_converter
+
+__VERSION__ = __version__
+
