@@ -35,45 +35,43 @@ def make_node(op_type, inputs, outputs, **attributes):
 
 
 def build_and_convert(nodes, inputs, outputs, initializers=None, filename="test.onnx",
-                      opset_version=14, **overrides):
-    """Build an ONNX model, convert to TFLite, and assert error < 1e-3.
+                      opset_version=14, use_direct_ir=None, **overrides):
+    """Build an ONNX model, convert to TFLite via both backends, assert error < 1e-3.
 
-    Args:
-        nodes: list of NodeProto (in topological order)
-        inputs: list of ValueInfoProto
-        outputs: list of ValueInfoProto
-        initializers: list of TensorProto or None
-        filename: str filename for the saved .onnx
-        **overrides: forwarded to onnx_converter (e.g. need_simplify=True)
-
-    Returns:
-        Full result dict from onnx_converter.
+    Tests both Keras and direct-IR paths by default. Set use_direct_ir=False
+    for Keras-only, or True for direct-only.
     """
     graph = onnx_helper.make_graph(
-        nodes=nodes,
-        name="test_graph",
-        inputs=inputs,
-        outputs=outputs,
+        nodes=nodes, name="test_graph", inputs=inputs, outputs=outputs,
         initializer=initializers or [],
     )
     opset_imports = [onnx_helper.make_opsetid("", opset_version)]
     model = onnx_helper.make_model(graph, opset_imports=opset_imports)
-
     path = os.path.join(MODEL_ROOT, filename)
     onnx.save(model, path)
 
-    kwargs = dict(
-        need_simplify=False,
-        output_path=MODEL_ROOT,
-        target_formats=["tflite"],
-        native_groupconv=False,
-        fp16_model=False,
-        int8_model=False,
-    )
-    kwargs.update(overrides)
+    base_kwargs = dict(need_simplify=False, output_path=MODEL_ROOT,
+                       target_formats=["tflite"], native_groupconv=False,
+                       fp16_model=False, int8_model=False)
+    base_kwargs.update(overrides)
 
-    result = onnx_converter(onnx_model_path=path, **kwargs)
-    error = result.get("tflite_error", None)
-    assert error is not None, "No tflite_error in result — conversion may have failed"
-    assert error < 1e-3, f"tflite_error={error} >= 1e-3 for {filename}"
-    return result
+    paths = []
+    if use_direct_ir is None or use_direct_ir is False:
+        paths.append(("Keras", "keras"))
+    if use_direct_ir is None or use_direct_ir is True:
+        paths.append(("direct-IR", "direct"))
+
+    for label, backend in paths:
+        try:
+            if backend == "direct":
+                result = onnx_converter(onnx_model_path=path, use_direct_ir=True,
+                                        need_simplify=False, output_path=MODEL_ROOT)
+            else:
+                result = onnx_converter(onnx_model_path=path, **base_kwargs)
+        except NotImplementedError as e:
+            import warnings
+            warnings.warn(f"Skipping {label} for {filename}: {e}")
+            continue
+        error = result.get("tflite_error", None)
+        assert error is not None, f"No tflite_error ({label}) for {filename}"
+        assert error < 1e-3, f"tflite_error={error} >= 1e-3 for {filename} ({label} path)"

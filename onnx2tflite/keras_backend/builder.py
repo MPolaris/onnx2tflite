@@ -4,16 +4,16 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 from tensorflow import keras
 from onnx import numpy_helper
-from .dataloader import RandomLoader, ImageLoader
+from onnx2tflite.dataloader import RandomLoader, NpyLoader
 
 from onnx2tflite.utils import OPERATOR
-from onnx2tflite.layers import conv_layers
+from onnx2tflite.keras_backend.ops import convolution, activation, math, deformation, common
 from onnx2tflite.utils.definitions import *
 from onnx2tflite.utils.graph_tools import build_tf_inputs, decode_node_attribute
 
 def keras_builder(onnx_model, native_groupconv:bool=False):
 
-    conv_layers.USE_NATIVE_GROUP_CONV = native_groupconv
+    convolution.USE_NATIVE_GROUP_CONV = native_groupconv
     
     model_graph = onnx_model.graph
     layout_dict, tf_tensor = {}, {}
@@ -77,8 +77,8 @@ def keras_builder(onnx_model, native_groupconv:bool=False):
         output_layout[oup.name] = layout_dict[oup.name]
     return keras_model, input_layout, output_layout
 
-def tflite_builder(keras_model, weight_quant:bool=False, fp16_model=False, int8_model:bool=False, image_root:str=None,
-                    int8_mean:list or float = [123.675, 116.28, 103.53], int8_std:list or float = [58.395, 57.12, 57.375]):
+def tflite_builder(keras_model, weight_quant: bool = False, fp16_model: bool = False,
+                   int8_model: bool = False, calibration_data: list = None):
     converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
     if weight_quant or int8_model or fp16_model:
@@ -90,10 +90,12 @@ def tflite_builder(keras_model, weight_quant:bool=False, fp16_model=False, int8_
         converter.inference_input_type = tf.float32
         converter.inference_output_type = tf.float32
     elif int8_model:
-        assert len(keras_model.inputs) == 1, f"help want, only support single input model."
-        shape = list(keras_model.inputs[0].shape)
-        dataset = RandomLoader(shape) if image_root is None else ImageLoader(image_root, shape, int8_mean, int8_std)
-        converter.representative_dataset = lambda: dataset
+        shapes = [list(s.shape) for s in keras_model.inputs]
+        if calibration_data:
+            loader = NpyLoader(calibration_data, shapes)
+        else:
+            loader = RandomLoader(shapes)
+        converter.representative_dataset = lambda: loader
         converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8, tf.lite.OpsSet.SELECT_TF_OPS]
         converter.target_spec.supported_types = []
         converter.inference_input_type = tf.uint8

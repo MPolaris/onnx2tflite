@@ -18,103 +18,127 @@ res = onnx_converter(
     )
 ```
 ---
+## CLI Usage
 ```cmd
-# base
+# basic conversion
 python -m onnx2tflite --weights "./your_model.onnx"
 
-# give save path
+# save to specific path
 python -m onnx2tflite --weights "./your_model.onnx" --outpath "./save_path"
 
-# save tflite model
-python -m onnx2tflite --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite"
+# output formats
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite"
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" "keras"
 
-# save keras and tflite model
-python -m onnx2tflite --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" "keras"
+# subgraph extraction (cutoff model by layer names)
+python -m onnx2tflite --weights "./your_model.onnx" --input-node-names "layer_in" --output-node-names "layer_out1" "layer_out2"
 
-# cutoff model, redefine inputs and outputs, support middle layers
-python -m onnx2tflite --weights "./your_model.onnx" --outpath "./save_path" --formats "tflite" --input-node-names "layer_inputname" --output-node-names "layer_outname1" "layer_outname2"
+# quantization
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --weigthquant     # weight-only int8
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --fp16              # fp16
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --int8              # int8 (random calib, low accuracy)
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --int8              # int8 with calibration
+    --calibration-data "./calib_input.npy"
 
-# quantify model weight, only weight
-python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --weigthquant
-
-# quantify model weight, include input and output
-## fp16
-python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --fp16
-## recommend
-python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --int8 --imgroot "./dataset_path" --int8mean 0 0 0 --int8std 255 255 255
-## generate random data, instead of read from image file
+# multi-input model with int8
 python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --int8
+    --calibration-data "./input0.npy" "./input1.npy"
+
+# direct IR conversion (bypass Keras, faster)
+python -m onnx2tflite --weights "./your_model.onnx" --formats "tflite" --direct-ir
 ```
 ---
 ## Features
 - High Consistency. Compare to ONNX outputs, average error less than 1e-5 per elements.
 - More Faster. Output tensorflow-lite model 30% faster than [onnx_tf](https://github.com/onnx/onnx-tensorflow).
-- Auto Channel Align. Auto convert pytorch format(NCWH) to tensorflow format(NWHC).
-- Deployment Support. Support output quantitative model, include fp16 quantization and uint8 quantization.
-- Code Friendly. I've been trying to keep the code structure simple and clear.
+- Auto Channel Align. Auto convert pytorch format(NCHW) to tensorflow format(NHWC).
+- Deployment Support. FP16, INT8 (weight-only, full integer) quantization.
+- Two Backends: Keras (stable) and Direct IR (fast, bypasses Keras).
+- Multi-Input INT8: calibration data via .npy files, supports models with multiple inputs.
 ---
+## INT8 Calibration Data Format
 
-## Pytorch -> ONNX -> Tensorflow-Keras -> Tensorflow-Lite
+INT8 quantization requires a representative dataset for calibration.  
+Calibration data is provided as `.npy` files — one file per model input.
 
-- ### From torchvision to tensorflow-lite
+**Data format:**
+- Shape: `(N, ...)` where N is the number of calibration samples (recommended: 50-200)
+- The remaining dimensions must match the model input shape
+- Data should be **preprocessed** (normalized, resized, channel-ordered) before saving
+
+**Multi-input models:** provide one `.npy` file per input in the same order as the ONNX model inputs.
+
 ```python
-import torch
-import torchvision
-_input = torch.randn(1, 3, 224, 224)
-model = torchvision.models.mobilenet_v2(True)
-# use default settings is ok
-torch.onnx.export(model, _input, './mobilenetV2.onnx', opset_version=11)# or opset_version=13
+import numpy as np
 
-from converter import onnx_converter
+# Single-input model: shape (1, 3, 224, 224)
+calib = np.random.randn(100, 3, 224, 224).astype(np.float32)
+np.save("./calib_input.npy", calib)
+
+# Multi-input model: two inputs with shapes (1, 3, 224, 224) and (1, 1000)
+np.save("./calib_img.npy", np.random.randn(100, 3, 224, 224).astype(np.float32))
+np.save("./calib_vec.npy", np.random.randn(100, 1000).astype(np.float32))
+
 onnx_converter(
-    onnx_model_path = "./mobilenetV2.onnx",
-    need_simplify = True,
-    output_path = "./",
-    target_formats = ['tflite'], # or ['keras'], ['keras', 'tflite']
-    weight_quant = False,
-    fp16_model=False,
-    int8_model = False,
-    int8_mean = None,
-    int8_std = None,
-    image_root = None
+    onnx_model_path = "./model.onnx",
+    int8_model = True,
+    calibration_data = ["./calib_img.npy", "./calib_vec.npy"],
 )
 ```
-- ### From custom pytorch model to tensorflow-lite-int8
+---
+## Direct IR Backend
+
+The `use_direct_ir=True` flag enables a new conversion path that builds TFLite
+FlatBuffer models directly from the ONNX graph, bypassing Keras entirely.
+
+- Faster conversion (no Keras model building or saving)
+- More control over the generated TFLite ops
+- Supports most common operators
+
 ```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from onnx2tflite import onnx_converter
 
-class MyModel(nn.Module):
-    def __init__(self):
-        self.conv = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-        )
-    
-    def forward(self, x):
-        return self.conv(x)
-
-model = MyModel()
-model.load_state_dict(torch.load("model_checkpoint.pth", map_location="cpu"))
-
-_input = torch.randn(1, 3, 224, 224)
-torch.onnx.export(model, _input, './mymodel.onnx', opset_version=11)# or opset_version=13
-
-from converter import onnx_converter
-onnx_converter(
-    onnx_model_path = "./mymodel.onnx",
-    need_simplify = True,
-    output_path = "./",
-    target_formats = ['tflite'], #or ['keras'], ['keras', 'tflite']
-    weight_quant = False,
-    int8_model = True, # do quantification
-    int8_mean = [123.675, 116.28, 103.53], # give mean of image preprocessing 
-    int8_std = [58.395, 57.12, 57.375], # give std of image preprocessing 
-    image_root = "./dataset/train" # give image folder of train
-)
+onnx_converter("model.onnx", use_direct_ir=True)
 ```
+
+The Keras backend (`use_direct_ir=False`, default) remains available for operators
+not yet supported by the direct IR path (e.g. Erf).
+---
+## Python API
+
+```python
+from onnx2tflite import onnx_converter
+
+# Basic conversion
+onnx_converter("model.onnx", output_path="./out", target_formats=['tflite'])
+
+# INT8 quantization with calibration data
+onnx_converter(
+    "model.onnx",
+    int8_model=True,
+    calibration_data=["./calib_input.npy"],
+)
+
+# Direct IR backend (bypass Keras)
+onnx_converter("model.onnx", use_direct_ir=True)
+```
+
+### onnx_converter parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| onnx_model_path | str | required | Path to ONNX model file |
+| output_path | str | None | Output directory (default: same as input) |
+| input_node_names | list | None | Subgraph input names (None = all) |
+| output_node_names | list | None | Subgraph output names (None = all) |
+| need_simplify | bool | True | Run onnx-simplifier before conversion |
+| target_formats | list | ['tflite'] | Output formats: 'tflite', 'keras' |
+| use_direct_ir | bool | False | Use direct IR backend (bypass Keras) |
+| native_groupconv | bool | False | Use native grouped conv (tflite >= 2.9) |
+| weight_quant | bool | False | Weight-only INT8 quantization |
+| fp16_model | bool | False | FP16 quantization |
+| int8_model | bool | False | Full INT8 quantization |
+| calibration_data | list | None | List of .npy file paths for INT8 calibration |
 ---
 ## Validated models
 - [SSD](https://github.com/qfgaohao/pytorch-ssd)
@@ -138,24 +162,15 @@ onnx_converter(
 - 1D or 2D CNN without special operators(custom)
 ---
 ## Add operator by yourself
-When you counter unspported operator, you can choose to add it by yourself or make an issue.<br/>
-It's very simple to implement a new operator parser by following these steps below.<br/>
-Step 0: Select a corresponding layer code file in [layers folder](./onnx2tflite/layers/), such as activations_layers.py for 'HardSigmoid'.<br/>
-Step 1: Open it, and edit it:
+When you counter unspported operator, you can choose to add it by yourself or make an issue.
+
+### Keras backend
+Register a handler class in `keras_backend/ops/` (e.g. `activation.py`):
 ```python
-# all operators regist through OPERATOR register.
-# regist operator's name is onnx operator name. 
 @OPERATOR.register_operator("HardSigmoid")
 class TFHardSigmoid():
-    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs) -> None:
-        '''
-        :param tensor_grap: dict, key is node name, value is tensorflow-keras node output tensor.
-        :param node_weights: dict, key is node name, value is static data, such as weight/bias/constant, weight should be transfom by dimension_utils.tensor_NCD_to_NDC_format at most time.
-        :param node_inputs: List[str], stored node input names, indicates which nodes the input comes from, tensor_grap and node_weights are possible.
-        :param node_attribute: dict, key is attribute name, such as 'axis' or 'perm'. value type is indeterminate, such as List[int] or int or float. notice that type of 'axis' value should be adjusted form NCHW to NHWC by dimension_utils.channel_to_last_dimension or dimension_utils.shape_NCD_to_NDC_format.
-        :param node_inputs: List[str], stored node output names.
-        :param layout_dict: List[Layout], stored all before node's layout.
-        '''
+    def __init__(self, tensor_graph, node_weights, node_inputs,
+                 node_attribute, node_outputs, layout_dict, *args, **kwargs):
         super().__init__()
         self.alpha = node_attribute.get("alpha", 0.2)
         self.beta = node_attribute.get("beta", 0.5)
@@ -163,10 +178,15 @@ class TFHardSigmoid():
     def __call__(self, inputs):
         return tf.clip_by_value(self.alpha*inputs+self.beta, 0, 1)
 ```
-Step 2: Make it work without error.<br/>
-Step 3: Convert model to tflite without any quantification.<br/>
 
+### TFLite direct IR backend
+Add a handler function in `tflite_backend/ops/`:
+```python
+@_register("HardSigmoid")
+def _hard_sigmoid(builder, node):
+    inp = builder._tensor_map[node.input[0]]
+    ...
+```
 ---
-
 # License
 This software is covered by Apache-2.0 license.
