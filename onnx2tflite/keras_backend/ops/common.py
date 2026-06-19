@@ -226,6 +226,35 @@ class TFConstant():
     def __call__(self, *args, **kwargs):
         return self.val
 
+@OPERATOR.register_operator("Shape")
+class TFShape():
+    def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):
+        super().__init__()
+        self.start = node_attribute.get("start", 0)
+        self.end = node_attribute.get("end")
+        self.channel_last = layout_dict.get(node_inputs[0], Layout.Default) == Layout.Channel_Last
+        self.rank = tensor_grap[node_inputs[0]].shape.rank
+        layout_dict[node_outputs[0]] = Layout.Channel_None
+
+    @staticmethod
+    def _normalise_index(index, rank):
+        if index is None:
+            return None
+        if rank is not None and index < 0:
+            index += rank
+        if rank is not None:
+            index = max(0, min(index, rank))
+        return index
+
+    def __call__(self, inputs):
+        rank = inputs.shape.rank or self.rank
+        shape = tf.shape(inputs, out_type=tf.int64)
+        if self.channel_last and rank is not None and rank > 2:
+            shape = tf.gather(shape, [0, rank - 1, *range(1, rank - 1)])
+        start = self._normalise_index(self.start, rank)
+        end = self._normalise_index(self.end, rank)
+        return shape[start:end]
+
 @OPERATOR.register_operator("ScatterND")
 class TFScatterND():
     def __init__(self, tensor_grap, node_weights, node_inputs, node_attribute, node_outputs, layout_dict, *args, **kwargs):

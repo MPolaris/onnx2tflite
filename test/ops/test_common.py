@@ -4,7 +4,11 @@ Unit tests for common/normalization/pooling operators.
 Reference: asserts/Operators.md for ONNX operator specs.
 """
 import numpy as np
+import tensorflow as tf
 import helper
+
+from onnx2tflite.keras_backend.ops.common import TFShape
+from onnx2tflite.utils.definitions import Layout
 
 
 # --- Normalization ---
@@ -191,6 +195,62 @@ def test_dropout():
         outputs=[helper.make_output("output", (1, 3, 4, 4))],
         filename="test_dropout.onnx",
     )
+
+
+# --- Shape ---
+
+def test_shape():
+    helper.build_and_convert(
+        nodes=[helper.make_node("Shape", ["input"], ["shape"])],
+        inputs=[helper.make_input("input", (1, 3, 4, 5))],
+        outputs=[helper.make_output("shape", (4,), dtype=helper.TensorProto.INT64)],
+        filename="test_shape.onnx",
+        use_direct_ir=False,
+    )
+
+
+def test_shape_start_end():
+    helper.build_and_convert(
+        nodes=[helper.make_node("Shape", ["input"], ["shape"], start=1, end=-1)],
+        inputs=[helper.make_input("input", (1, 3, 4, 5))],
+        outputs=[helper.make_output("shape", (2,), dtype=helper.TensorProto.INT64)],
+        filename="test_shape_start_end.onnx",
+        opset_version=15,
+        use_direct_ir=False,
+    )
+
+
+def test_shape_start_end_channel_last_input():
+    weight = np.ones((2, 3, 1, 1), dtype=np.float32)
+    helper.build_and_convert(
+        nodes=[
+            helper.make_node("Conv", ["input", "weight"], ["conv"], kernel_shape=[1, 1], strides=[1, 1]),
+            helper.make_node("Shape", ["input"], ["shape"], start=1, end=-1),
+        ],
+        inputs=[helper.make_input("input", (1, 3, 4, 5))],
+        outputs=[helper.make_output("shape", (2,), dtype=helper.TensorProto.INT64)],
+        initializers=[helper.make_weight("weight", weight)],
+        filename="test_shape_start_end_channel_last_input.onnx",
+        opset_version=15,
+        use_direct_ir=False,
+    )
+
+
+def test_shape_clamps_start_end_bounds():
+    helper.build_and_convert(
+        nodes=[helper.make_node("Shape", ["input"], ["shape"], start=-10, end=10)],
+        inputs=[helper.make_input("input", (1, 3, 4, 5))],
+        outputs=[helper.make_output("shape", (4,), dtype=helper.TensorProto.INT64)],
+        filename="test_shape_clamps_start_end_bounds.onnx",
+        opset_version=15,
+        use_direct_ir=False,
+    )
+
+    tensor_grap = {"input": tf.keras.Input(shape=(3, 4, 5), batch_size=1)}
+    layout_dict = {"input": Layout.Channel_First}
+    op = TFShape(tensor_grap, {}, ["input"], {"start": 0, "end": -10}, ["shape"], layout_dict)
+
+    assert op(tf.zeros((1, 3, 4, 5))).numpy().tolist() == []
 
 
 # --- TopK ---
